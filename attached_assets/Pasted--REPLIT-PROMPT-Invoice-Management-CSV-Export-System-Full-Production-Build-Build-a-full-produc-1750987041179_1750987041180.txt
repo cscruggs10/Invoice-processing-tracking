@@ -1,0 +1,137 @@
+🔧 REPLIT PROMPT: Invoice Management & CSV Export System (Full Production Build)
+Build a full production-grade web application for internal invoice management and daily CSV export.
+The system will be used by employees at multiple locations and remote overseas workers. It must be clean, fast, mobile-accessible, and robust.
+
+🔹 PURPOSE
+This app allows users to:
+
+Upload invoices from any mobile device
+
+Manually enter invoice data
+
+Auto-assign GL codes based on vehicle database lookups
+
+Review and finalize invoice data
+
+Export daily-approved invoices to CSV for upload to an external accounting system
+
+Store all records for search, audit, and compliance
+
+🔹 USER ACCESS
+All users will have full access initially
+
+System must track which user uploaded, edited, or approved each invoice
+
+🔹 WORKFLOW
+🟢 Step 1: Invoice Upload
+Logged-in user uploads an invoice (image or PDF)
+
+System logs user + timestamp
+
+Uploaded invoice enters “Pending Entry” queue
+
+🟢 Step 2: Manual Data Entry
+Remote workers enter:
+
+Vendor Name (free text)
+
+Vendor #
+
+Invoice #
+
+Invoice Date
+
+Invoice Amount
+
+VIN (last 8 digits only)
+
+Invoice Type (free text)
+
+Description (optional)
+
+Due Date is auto-filled with the date of entry
+
+VIN is searched against 4 Supabase databases (see below)
+
+🟢 Step 3: GL Code Assignment
+If VIN is found in:
+
+wholesale_inventory → assign GL = 1400
+
+retail_inventory → assign GL = 1400
+
+If VIN is found in sold or current_account, or not found at all:
+
+Route to Admin Review Queue
+
+Include database found in and days since last_updated or sold_date
+
+🟢 Step 4: Review & Approval
+Admin views uploaded image + entered data side-by-side
+
+Marks invoice as approved
+
+Once approved, invoice becomes eligible for export
+
+🟢 Step 5: Daily CSV Export
+Admin clicks "Finalize Daily CSV"
+
+CSV is generated in the following format:
+
+pgsql
+Copy
+Edit
+Vendor Name, Vendor #, Invoice #, Invoice Date, Invoice Amount, Due Date, G/L#, Invoice Type, Description
+File is named daily_upload_YYYY-MM-DD.csv
+
+Only invoices marked as approved and validated are included
+
+System logs which invoices have been finalized to prevent duplicate export
+
+🟢 Step 6: Storage & Search
+All invoices are stored permanently unless archived
+
+Search/filter invoices by:
+
+Vendor, Date, VIN, Status, GL code, Invoice Type, etc.
+
+Ability to view invoices not yet finalized
+
+Invoices can be marked "Paid" after check is cut
+
+🔹 SUPABASE DATABASES
+System checks VIN against the following Supabase tables using the last 8 digits of the VIN:
+
+wholesale_inventory
+
+retail_inventory
+
+sold
+
+current_account
+
+"Sold" entries must be kept on a rolling 6-month basis
+
+Logic may expand later to assign GLs dynamically — build in a modular way
+
+🔹 PLATFORM REQUIREMENTS
+Mobile-first responsive UI
+
+Clean dashboard interface for:
+
+Upload Queue
+
+Data Entry
+
+Review Queue
+
+Finalized Invoices
+
+Admin Review Queue
+
+Full edit history for each invoice
+
+Hosted in Replit, uses Supabase for DB and Auth
+
+Allow CSV file download (no email/send features needed yet)
+
