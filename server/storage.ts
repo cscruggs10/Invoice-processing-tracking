@@ -5,8 +5,8 @@ import {
   type UploadedFile, type InsertUploadedFile, type AuditLog, type InsertAuditLog,
   type CsvExport, type InvoiceStatus, type VinLookupResult
 } from "@shared/schema";
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq, and, gte, lte, ilike, inArray, desc } from "drizzle-orm";
 
 export interface IStorage {
@@ -482,7 +482,9 @@ export class DatabaseStorage implements IStorage {
       throw new Error("DATABASE_URL environment variable is required");
     }
     
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = postgres(process.env.DATABASE_URL!, {
+      ssl: { rejectUnauthorized: false }
+    });
     this.db = drizzle(sql);
   }
 
