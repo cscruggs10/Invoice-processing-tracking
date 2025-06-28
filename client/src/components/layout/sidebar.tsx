@@ -71,9 +71,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               return (
                 <li key={item.href}>
                   <Link href={item.href}>
-                    <a
+                    <div
                       className={cn(
-                        "flex items-center justify-between px-4 py-3 text-sm border-b border-gray-100 transition-colors hover:bg-primary hover:text-primary-foreground",
+                        "flex items-center justify-between px-4 py-3 text-sm border-b border-gray-100 transition-colors hover:bg-primary hover:text-primary-foreground cursor-pointer",
                         isActive && "bg-primary text-primary-foreground"
                       )}
                       onClick={handleLinkClick}
@@ -87,7 +87,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                           {item.count}
                         </Badge>
                       )}
-                    </a>
+                    </div>
                   </Link>
                 </li>
               );

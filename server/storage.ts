@@ -5,6 +5,9 @@ import {
   type UploadedFile, type InsertUploadedFile, type AuditLog, type InsertAuditLog,
   type CsvExport, type InvoiceStatus, type VinLookupResult
 } from "@shared/schema";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import { eq, and, gte, lte, ilike, inArray, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User management
@@ -107,6 +110,7 @@ export class MemStorage implements IStorage {
       ...insertUser,
       id: this.currentUserId++,
       createdAt: new Date(),
+      role: insertUser.role || "user",
     };
     this.users.set(user.id, user);
     return user;
@@ -174,6 +178,13 @@ export class MemStorage implements IStorage {
       id: this.currentInvoiceId++,
       createdAt: new Date(),
       updatedAt: new Date(),
+      status: insertInvoice.status || "pending_entry",
+      description: insertInvoice.description || null,
+      glCode: insertInvoice.glCode || null,
+      enteredBy: insertInvoice.enteredBy || null,
+      approvedBy: insertInvoice.approvedBy || null,
+      finalizedBy: insertInvoice.finalizedBy || null,
+      vinLookupResult: insertInvoice.vinLookupResult || null,
     };
     this.invoices.set(invoice.id, invoice);
     return invoice;
@@ -220,6 +231,7 @@ export class MemStorage implements IStorage {
       ...insertFile,
       id: this.currentFileId++,
       createdAt: new Date(),
+      invoiceId: insertFile.invoiceId || null,
     };
     this.uploadedFiles.set(file.id, file);
     return file;
@@ -287,6 +299,8 @@ export class MemStorage implements IStorage {
       ...insertLog,
       id: this.currentAuditId++,
       createdAt: new Date(),
+      oldValues: insertLog.oldValues || null,
+      newValues: insertLog.newValues || null,
     };
     this.auditLogs.set(log.id, log);
     return log;
@@ -342,4 +356,238 @@ export class MemStorage implements IStorage {
   }
 }
 
+// Database storage implementation using Drizzle + Neon
+export class DatabaseStorage implements IStorage {
+  private db;
+
+  constructor() {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+    
+    const sql = neon(process.env.DATABASE_URL!);
+    this.db = drizzle(sql);
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await this.db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async getInvoices(filters?: {
+    status?: InvoiceStatus[];
+    userId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    vendorName?: string;
+    invoiceNumber?: string;
+    vin?: string;
+  }): Promise<Invoice[]> {
+    let query = this.db.select().from(invoices);
+    
+    const conditions = [];
+    
+    if (filters?.status) {
+      conditions.push(inArray(invoices.status, filters.status));
+    }
+    
+    if (filters?.userId) {
+      conditions.push(
+        eq(invoices.uploadedBy, filters.userId)
+      );
+    }
+    
+    if (filters?.vendorName) {
+      conditions.push(ilike(invoices.vendorName, `%${filters.vendorName}%`));
+    }
+    
+    if (filters?.invoiceNumber) {
+      conditions.push(ilike(invoices.invoiceNumber, `%${filters.invoiceNumber}%`));
+    }
+    
+    if (filters?.vin) {
+      conditions.push(ilike(invoices.vin, `%${filters.vin}%`));
+    }
+    
+    if (filters?.startDate) {
+      conditions.push(gte(invoices.createdAt, filters.startDate));
+    }
+    
+    if (filters?.endDate) {
+      conditions.push(lte(invoices.createdAt, filters.endDate));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    const result = await this.db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const result = await this.db.insert(invoices).values(insertInvoice).returning();
+    return result[0];
+  }
+
+  async updateInvoice(id: number, updates: Partial<Invoice>): Promise<Invoice> {
+    const result = await this.db.update(invoices)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(invoices.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error("Invoice not found");
+    }
+    
+    return result[0];
+  }
+
+  async updateInvoiceStatus(id: number, status: InvoiceStatus, userId: number): Promise<Invoice> {
+    const updates: Partial<Invoice> = { status };
+    
+    // Set appropriate user field based on status
+    switch (status) {
+      case "pending_review":
+        updates.enteredBy = userId;
+        break;
+      case "approved":
+        updates.approvedBy = userId;
+        break;
+      case "finalized":
+        updates.finalizedBy = userId;
+        break;
+    }
+    
+    return this.updateInvoice(id, updates);
+  }
+
+  async createUploadedFile(insertFile: InsertUploadedFile): Promise<UploadedFile> {
+    const result = await this.db.insert(uploadedFiles).values(insertFile).returning();
+    return result[0];
+  }
+
+  async getUploadedFile(id: number): Promise<UploadedFile | undefined> {
+    const result = await this.db.select().from(uploadedFiles).where(eq(uploadedFiles.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getFilesByInvoice(invoiceId: number): Promise<UploadedFile[]> {
+    return this.db.select().from(uploadedFiles).where(eq(uploadedFiles.invoiceId, invoiceId));
+  }
+
+  async lookupVin(vin: string): Promise<VinLookupResult> {
+    // Check wholesale inventory
+    const wholesale = await this.db.select().from(wholesaleInventory).where(eq(wholesaleInventory.vin, vin)).limit(1);
+    if (wholesale.length > 0) {
+      const daysSinceUpdate = Math.floor((Date.now() - wholesale[0].lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        found: true,
+        database: "wholesale_inventory",
+        daysSinceUpdate,
+      };
+    }
+    
+    // Check retail inventory
+    const retail = await this.db.select().from(retailInventory).where(eq(retailInventory.vin, vin)).limit(1);
+    if (retail.length > 0) {
+      const daysSinceUpdate = Math.floor((Date.now() - retail[0].lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        found: true,
+        database: "retail_inventory",
+        daysSinceUpdate,
+      };
+    }
+    
+    // Check sold inventory
+    const sold = await this.db.select().from(soldInventory).where(eq(soldInventory.vin, vin)).limit(1);
+    if (sold.length > 0) {
+      const daysSinceUpdate = Math.floor((Date.now() - sold[0].soldDate.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        found: true,
+        database: "sold",
+        daysSinceUpdate,
+      };
+    }
+    
+    // Check current account
+    const currentAcc = await this.db.select().from(currentAccount).where(eq(currentAccount.vin, vin)).limit(1);
+    if (currentAcc.length > 0) {
+      const daysSinceUpdate = Math.floor((Date.now() - currentAcc[0].lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        found: true,
+        database: "current_account",
+        daysSinceUpdate,
+      };
+    }
+    
+    return { found: false };
+  }
+
+  async createAuditLog(insertLog: InsertAuditLog): Promise<AuditLog> {
+    const result = await this.db.insert(auditLog).values(insertLog).returning();
+    return result[0];
+  }
+
+  async getAuditLogs(invoiceId: number): Promise<AuditLog[]> {
+    return this.db.select().from(auditLog)
+      .where(eq(auditLog.invoiceId, invoiceId))
+      .orderBy(desc(auditLog.createdAt));
+  }
+
+  async createCsvExport(exportData: Omit<CsvExport, 'id' | 'createdAt'>): Promise<CsvExport> {
+    const result = await this.db.insert(csvExports).values(exportData).returning();
+    return result[0];
+  }
+
+  async getCsvExports(): Promise<CsvExport[]> {
+    return this.db.select().from(csvExports).orderBy(desc(csvExports.createdAt));
+  }
+
+  async getDashboardStats(): Promise<{
+    totalPending: number;
+    readyToExport: number;
+    todaysTotal: number;
+    needReview: number;
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Get all invoices for stats calculation
+    const allInvoices = await this.db.select().from(invoices);
+    
+    const todaysInvoices = allInvoices.filter(inv => 
+      inv.createdAt >= today && inv.createdAt < tomorrow
+    );
+    
+    return {
+      totalPending: allInvoices.filter(inv => 
+        ["pending_entry", "pending_review"].includes(inv.status)
+      ).length,
+      readyToExport: allInvoices.filter(inv => inv.status === "approved").length,
+      todaysTotal: todaysInvoices.reduce((sum, inv) => 
+        sum + parseFloat(inv.invoiceAmount.toString()), 0
+      ),
+      needReview: allInvoices.filter(inv => inv.status === "admin_review").length,
+    };
+  }
+}
+
+// Use memory storage for now (will switch to database when DATABASE_URL is properly configured)
 export const storage = new MemStorage();
