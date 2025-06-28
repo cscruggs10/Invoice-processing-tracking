@@ -12,25 +12,55 @@ import {
   FileText
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useDashboardStats, useInvoices } from "@/hooks/use-invoices";
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const navigationItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, count: null },
-  { href: "/upload", label: "Upload Invoice", icon: Upload, count: null },
-  { href: "/entry", label: "Data Entry Queue", icon: Keyboard, count: 8 },
-  { href: "/review", label: "Review Queue", icon: Eye, count: 12 },
-  { href: "/admin", label: "Admin Review", icon: Shield, count: 3 },
-  { href: "/approved", label: "Approved Invoices", icon: CheckCircle, count: 24 },
-  { href: "/export", label: "Daily Export", icon: Download, count: null },
-  { href: "/search", label: "Search & Archive", icon: Search, count: null },
+interface NavigationItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  getCount?: (stats: any, invoices: any) => number | null;
+}
+
+const navigationItems: NavigationItem[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/upload", label: "Upload Invoice", icon: Upload },
+  { 
+    href: "/entry", 
+    label: "Data Entry Queue", 
+    icon: Keyboard,
+    getCount: (stats) => stats?.totalPending || 0
+  },
+  { 
+    href: "/review", 
+    label: "Review Queue", 
+    icon: Eye,
+    getCount: (stats, invoices) => invoices?.filter((inv: any) => inv.status === "pending_review").length || 0
+  },
+  { 
+    href: "/admin", 
+    label: "Admin Review", 
+    icon: Shield,
+    getCount: (stats) => stats?.needReview || 0
+  },
+  { 
+    href: "/approved", 
+    label: "Approved Invoices", 
+    icon: CheckCircle,
+    getCount: (stats) => stats?.readyToExport || 0
+  },
+  { href: "/export", label: "Daily Export", icon: Download },
+  { href: "/search", label: "Search & Archive", icon: Search },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [location] = useLocation();
+  const { data: stats } = useDashboardStats();
+  const { data: invoices } = useInvoices();
 
   const handleLinkClick = () => {
     // Close sidebar on mobile after clicking a link
@@ -82,9 +112,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         <Icon className="h-4 w-4" />
                         <span>{item.label}</span>
                       </div>
-                      {item.count && (
+                      {item.getCount && (
                         <Badge variant={isActive ? "secondary" : "default"} className="ml-auto">
-                          {item.count}
+                          {item.getCount(stats, invoices)}
                         </Badge>
                       )}
                     </div>
