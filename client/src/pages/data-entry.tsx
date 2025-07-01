@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ export default function DataEntry() {
   const { data: allInvoices, isLoading, refetch } = useInvoices();
   
   // Force refresh when component mounts
-  React.useEffect(() => {
+  useEffect(() => {
     refetch();
   }, [refetch]);
   
