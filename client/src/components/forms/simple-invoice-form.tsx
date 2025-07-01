@@ -48,6 +48,8 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
   });
 
   const onSubmit = async (data: InvoiceFormData) => {
+    console.log("Form submitted with data:", data);
+    console.log("Form errors:", form.formState.errors);
     setIsSubmitting(true);
     try {
       // Convert string dates to Date objects
