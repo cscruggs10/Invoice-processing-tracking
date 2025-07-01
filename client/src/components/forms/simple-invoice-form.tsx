@@ -250,22 +250,60 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
         
         <button 
           type="button"
-          onClick={() => {
+          onClick={async () => {
             console.log("Submit button clicked!");
+            
+            // Get form data directly
             const formData = form.getValues();
             console.log("Form data:", formData);
-            const errors = form.formState.errors;
-            console.log("Form errors:", errors);
             
-            // Trigger form validation
-            form.trigger().then((isValid) => {
-              console.log("Form is valid:", isValid);
-              if (isValid) {
-                onSubmit(formData);
-              } else {
-                console.log("Form validation failed:", form.formState.errors);
-              }
-            });
+            // Simple validation - check if required fields are filled
+            const requiredFields = ['vendorName', 'vendorNumber', 'invoiceNumber', 'invoiceDate', 'invoiceAmount', 'vin', 'invoiceType', 'dueDate'];
+            const missingFields = requiredFields.filter(field => !formData[field]);
+            
+            if (missingFields.length > 0) {
+              console.log("Missing required fields:", missingFields);
+              alert(`Please fill in these required fields: ${missingFields.join(', ')}`);
+              return;
+            }
+            
+            console.log("All required fields filled, submitting...");
+            
+            // Submit directly
+            try {
+              setIsSubmitting(true);
+              
+              const invoiceData = {
+                ...formData,
+                invoiceDate: new Date(formData.invoiceDate),
+                dueDate: new Date(formData.dueDate),
+                invoiceAmount: formData.invoiceAmount.toString(),
+                uploadedBy: 1,
+                status: "pending_review" as const,
+                vinLookupResult: null,
+                glCode: null,
+              };
+              
+              console.log("Sending invoice data:", invoiceData);
+              
+              await createInvoice.mutateAsync(invoiceData);
+              
+              toast({
+                title: "Invoice Submitted",
+                description: "Invoice has been submitted for review",
+              });
+              
+              onSuccess?.();
+            } catch (error) {
+              console.error("Submit error:", error);
+              toast({
+                title: "Error",
+                description: "Failed to submit invoice. Please try again.",
+                variant: "destructive",
+              });
+            } finally {
+              setIsSubmitting(false);
+            }
           }}
           disabled={isSubmitting || createInvoice.isPending}
           className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50"
