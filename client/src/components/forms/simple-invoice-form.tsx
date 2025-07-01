@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, X, Search, AlertCircle } from "lucide-react";
-import { useCreateInvoice } from "@/hooks/use-invoices";
+import { useCreateInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 
 import { useToast } from "@/hooks/use-toast";
 import { insertInvoiceSchema } from "@shared/schema";
@@ -25,13 +25,15 @@ type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
 interface SimpleInvoiceFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  existingInvoice?: { id: number; } | null;
 }
 
-export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProps) {
-  console.log("SimpleInvoiceForm component rendered");
+export function SimpleInvoiceForm({ onSuccess, onCancel, existingInvoice }: SimpleInvoiceFormProps) {
+  console.log("SimpleInvoiceForm component rendered", { existingInvoice });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const createInvoice = useCreateInvoice();
+  const updateInvoice = useUpdateInvoice();
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceFormSchema),
@@ -278,7 +280,16 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
               
               console.log("Sending invoice data:", invoiceData);
               
-              await createInvoice.mutateAsync(invoiceData);
+              if (existingInvoice) {
+                // Update existing invoice
+                await updateInvoice.mutateAsync({
+                  id: existingInvoice.id,
+                  updates: invoiceData
+                });
+              } else {
+                // Create new invoice
+                await createInvoice.mutateAsync(invoiceData);
+              }
               
               toast({
                 title: "Invoice Submitted",
@@ -297,7 +308,7 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
               setIsSubmitting(false);
             }
           }}
-          disabled={isSubmitting || createInvoice.isPending}
+          disabled={isSubmitting || createInvoice.isPending || updateInvoice.isPending}
           className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50"
         >
           Save & Submit for Review

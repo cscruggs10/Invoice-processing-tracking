@@ -95,6 +95,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", async (req, res) => {
     try {
+      console.log("Creating invoice with request body:", req.body);
+      
       // Convert date strings to Date objects before validation
       const requestData = {
         ...req.body,
@@ -103,16 +105,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const invoiceData = insertInvoiceSchema.parse(requestData);
       
+      console.log("Parsed invoice data:", invoiceData);
+      console.log("Status from frontend:", invoiceData.status);
+      
       // Use the status provided from the frontend
       // VIN lookup and GL code assignment now happens during export process
       let glCode = invoiceData.glCode || null;
-      let status: InvoiceStatus = invoiceData.status || "pending_review";
+      let status: InvoiceStatus = (invoiceData.status as InvoiceStatus) || "pending_review";
       let vinLookup = invoiceData.vinLookupResult || { found: false };
+      
+      console.log("Final status to use:", status);
       
       if (invoiceData.vin === "PENDING" || invoiceData.vendorName === "Pending Entry") {
         // This is an uploaded invoice awaiting data entry
         status = "pending_entry";
         vinLookup = { found: false };
+        console.log("Override status for uploaded invoice:", status);
       }
       
       const invoice = await storage.createInvoice({

@@ -188,6 +188,7 @@ export default function DataEntry() {
               <SimpleInvoiceForm
                 onSuccess={handleFormSuccess}
                 onCancel={handleSkipInvoice}
+                existingInvoice={selectedInvoice}
               />
             </CardContent>
           </Card>
