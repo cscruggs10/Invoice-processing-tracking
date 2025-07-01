@@ -135,12 +135,18 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
             {/* Simple document viewer */}
             <div className="border rounded-lg overflow-hidden bg-white">
               {selectedFile.mimeType === 'application/pdf' ? (
-                <div className="relative overflow-auto" style={{ height: '700px' }}>
+                <div className="relative" style={{ height: '700px', overflow: 'hidden' }}>
                   <iframe
-                    src={`/api/files/${selectedFile.id}#toolbar=1&navpanes=1&scrollbar=1&page=1&view=FitH&zoom=${zoom * 100}`}
+                    src={`/api/files/${selectedFile.id}#toolbar=1&navpanes=1&scrollbar=1&page=1&view=Fit&zoom=${zoom * 100}`}
                     width="100%"
-                    height="1000px"
-                    style={{ border: 'none', minHeight: '1000px' }}
+                    height="100%"
+                    style={{ 
+                      border: 'none',
+                      transform: `scale(${zoom})`,
+                      transformOrigin: 'top left',
+                      width: `${100 / zoom}%`,
+                      height: `${100 / zoom}%`
+                    }}
                     title={selectedFile.originalName}
                   />
                 </div>
