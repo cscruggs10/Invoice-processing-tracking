@@ -260,9 +260,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "File not found" });
       }
       
-      // For now, we'll just return success since the file-invoice relationship
-      // is established when creating the invoice
-      res.json({ success: true });
+      // Update the file with the invoice ID
+      const updatedFile = await storage.updateUploadedFile(fileId, { invoiceId });
+      res.json(updatedFile);
     } catch (error) {
       res.status(500).json({ message: "Failed to update file" });
     }

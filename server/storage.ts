@@ -34,6 +34,7 @@ export interface IStorage {
   createUploadedFile(file: InsertUploadedFile): Promise<UploadedFile>;
   getUploadedFile(id: number): Promise<UploadedFile | undefined>;
   getFilesByInvoice(invoiceId: number): Promise<UploadedFile[]>;
+  updateUploadedFile(id: number, updates: Partial<UploadedFile>): Promise<UploadedFile>;
   
   // Billing line management
   createBillingLine(billingLine: InsertBillingLine): Promise<BillingLine>;
@@ -254,6 +255,19 @@ export class MemStorage implements IStorage {
   async getFilesByInvoice(invoiceId: number): Promise<UploadedFile[]> {
     return Array.from(this.uploadedFiles.values())
       .filter(file => file.invoiceId === invoiceId);
+  }
+
+  async updateUploadedFile(id: number, updates: Partial<UploadedFile>): Promise<UploadedFile> {
+    const file = this.uploadedFiles.get(id);
+    if (!file) throw new Error("File not found");
+    
+    const updatedFile: UploadedFile = {
+      ...file,
+      ...updates,
+    };
+    
+    this.uploadedFiles.set(id, updatedFile);
+    return updatedFile;
   }
 
   async createBillingLine(insertBillingLine: InsertBillingLine): Promise<BillingLine> {
@@ -544,6 +558,20 @@ export class DatabaseStorage implements IStorage {
 
   async getFilesByInvoice(invoiceId: number): Promise<UploadedFile[]> {
     return this.db.select().from(uploadedFiles).where(eq(uploadedFiles.invoiceId, invoiceId));
+  }
+
+  async updateUploadedFile(id: number, updates: Partial<UploadedFile>): Promise<UploadedFile> {
+    const result = await this.db
+      .update(uploadedFiles)
+      .set(updates)
+      .where(eq(uploadedFiles.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error("File not found");
+    }
+    
+    return result[0];
   }
 
   async createBillingLine(insertBillingLine: InsertBillingLine): Promise<BillingLine> {
