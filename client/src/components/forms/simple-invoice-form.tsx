@@ -239,38 +239,64 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
       {/* VIN lookup and GL code assignment will happen during export process */}
 
       <div className="flex gap-2 pt-4">
-        <Button 
-          type="submit"
-          disabled={isSubmitting || createInvoice.isPending}
-          className="bg-green-600 hover:bg-green-700"
-          onClick={() => {
-            console.log("Button clicked!");
-            console.log("Form state:", form.formState);
-            console.log("Form values:", form.getValues());
-            console.log("Form errors:", form.formState.errors);
-          }}
-        >
-          <Save className="h-4 w-4 mr-2" />
-          Save & Submit for Review
-        </Button>
-        <Button 
+        <button 
           type="button"
-          onClick={form.handleSubmit(onSubmitToAdminReview)}
+          onClick={() => {
+            console.log("Submit button clicked!");
+            const formData = form.getValues();
+            console.log("Form data:", formData);
+            const errors = form.formState.errors;
+            console.log("Form errors:", errors);
+            
+            // Trigger form validation
+            form.trigger().then((isValid) => {
+              console.log("Form is valid:", isValid);
+              if (isValid) {
+                onSubmit(formData);
+              } else {
+                console.log("Form validation failed:", form.formState.errors);
+              }
+            });
+          }}
           disabled={isSubmitting || createInvoice.isPending}
-          className="bg-orange-600 hover:bg-orange-700"
+          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50"
         >
-          <Save className="h-4 w-4 mr-2" />
+          Save & Submit for Review
+        </button>
+        
+        <button 
+          type="button"
+          onClick={() => {
+            console.log("Admin review button clicked!");
+            const formData = form.getValues();
+            console.log("Form data:", formData);
+            
+            form.trigger().then((isValid) => {
+              console.log("Form is valid:", isValid);
+              if (isValid) {
+                onSubmitToAdminReview(formData);
+              } else {
+                console.log("Form validation failed:", form.formState.errors);
+              }
+            });
+          }}
+          disabled={isSubmitting || createInvoice.isPending}
+          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md disabled:opacity-50"
+        >
           Send to Admin Review
-        </Button>
+        </button>
+        
         {onCancel && (
-          <Button 
+          <button 
             type="button" 
-            variant="outline" 
-            onClick={onCancel}
+            onClick={() => {
+              console.log("Cancel button clicked!");
+              onCancel();
+            }}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
           >
-            <X className="h-4 w-4 mr-2" />
             Skip This Invoice
-          </Button>
+          </button>
         )}
       </div>
     </form>
