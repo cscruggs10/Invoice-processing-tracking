@@ -103,20 +103,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const invoiceData = insertInvoiceSchema.parse(requestData);
       
-      // Perform VIN lookup
-      const vinLookup = await storage.lookupVin(invoiceData.vin);
-      
-      // Assign GL code based on lookup result
+      // Handle uploaded invoices differently (need data entry first)
       let glCode = null;
       let status: InvoiceStatus = "pending_review";
+      let vinLookup = { found: false };
       
-      if (vinLookup.found && 
-          (vinLookup.database === "wholesale_inventory" || vinLookup.database === "retail_inventory")) {
-        glCode = "1400";
-        status = "pending_review";
+      if (invoiceData.vin === "PENDING" || invoiceData.vendorName === "Pending Entry") {
+        // This is an uploaded invoice awaiting data entry
+        status = "pending_entry";
+        vinLookup = { found: false };
       } else {
-        // Route to admin review if VIN found in sold/current_account or not found
-        status = "admin_review";
+        // Normal invoice with VIN lookup
+        vinLookup = await storage.lookupVin(invoiceData.vin);
+        
+        if (vinLookup.found && 
+            (vinLookup.database === "wholesale_inventory" || vinLookup.database === "retail_inventory")) {
+          glCode = "1400";
+          status = "pending_review";
+        } else {
+          // Route to admin review if VIN found in sold/current_account or not found
+          status = "admin_review";
+        }
       }
       
       const invoice = await storage.createInvoice({

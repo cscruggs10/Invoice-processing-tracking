@@ -35,7 +35,7 @@ export default function Upload() {
           invoiceNumber: `UPLOAD-${Date.now()}`,
           invoiceDate: new Date().toISOString().split('T')[0],
           invoiceAmount: "0.00",
-          vin: "",
+          vin: "PENDING", // Use special marker to avoid VIN lookup routing
           invoiceType: "Parts",
           description: `Uploaded file: ${file.name}`,
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
