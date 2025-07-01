@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Info, Save, X } from "lucide-react";
 import { useVinLookup } from "@/hooks/use-vin-lookup";
 import { useCreateInvoice } from "@/hooks/use-invoices";
+import { BillingLinesForm, type BillingLineItem } from "@/components/forms/billing-lines-form";
 import type { InvoiceFormData } from "@/lib/types";
 
 const invoiceSchema = z.object({
@@ -31,6 +33,7 @@ interface InvoiceEntryFormProps {
 
 export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps) {
   const [watchedVin, setWatchedVin] = useState("");
+  const [billingLines, setBillingLines] = useState<BillingLineItem[]>([]);
   const createInvoice = useCreateInvoice();
   const vinLookup = useVinLookup(watchedVin);
 
@@ -134,7 +137,15 @@ export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps)
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <div className="space-y-4">
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="details">Invoice Details</TabsTrigger>
+          <TabsTrigger value="billing">Billing Lines ({billingLines.length})</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="details">
+          <form id="invoice-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="vendorName">Vendor Name *</Label>
@@ -265,35 +276,48 @@ export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps)
         </Alert>
       )}
 
-      <div className="flex gap-2 pt-4">
-        <Button 
-          type="submit" 
-          disabled={isSubmitting || createInvoice.isPending}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          Save & Submit for Review
-        </Button>
-        <Button 
-          type="button"
-          onClick={handleSubmit(onSubmitToAdminReview)}
-          disabled={isSubmitting || createInvoice.isPending}
-          className="bg-orange-600 hover:bg-orange-700"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          Send to Admin Review
-        </Button>
-        {onCancel && (
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={onCancel}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Skip This Invoice
-          </Button>
-        )}
-      </div>
     </form>
+        </TabsContent>
+        
+        <TabsContent value="billing">
+          <BillingLinesForm 
+            lines={billingLines}
+            onChange={setBillingLines}
+            invoiceTotal={form.watch("invoiceAmount") || 0}
+          />
+        </TabsContent>
+        
+        <div className="flex gap-2 pt-4">
+          <Button 
+            type="submit"
+            form="invoice-form"
+            disabled={isSubmitting || createInvoice.isPending}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save & Submit for Review
+          </Button>
+          <Button 
+            type="button"
+            onClick={handleSubmit(onSubmitToAdminReview)}
+            disabled={isSubmitting || createInvoice.isPending}
+            className="bg-orange-600 hover:bg-orange-700"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Send to Admin Review
+          </Button>
+          {onCancel && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Skip This Invoice
+            </Button>
+          )}
+        </div>
+      </Tabs>
+    </div>
   );
 }
