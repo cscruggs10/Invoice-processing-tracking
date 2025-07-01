@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { InvoiceEntryForm } from "@/components/forms/invoice-entry-form";
+import { SimpleInvoiceForm } from "@/components/forms/simple-invoice-form";
 import { VehicleSelectionForm } from "@/components/forms/vehicle-selection-form";
 import { MultiVehicleEntryForm } from "@/components/forms/multi-vehicle-entry-form";
 import { ZoomIn, Download, ArrowLeft } from "lucide-react";
@@ -118,7 +118,7 @@ export default function DataEntry() {
               <CardTitle>Single Vehicle Invoice</CardTitle>
             </CardHeader>
             <CardContent>
-              <InvoiceEntryForm
+              <SimpleInvoiceForm
                 onSuccess={handleFormSuccess}
                 onCancel={handleSkipInvoice}
               />

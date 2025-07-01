@@ -80,7 +80,7 @@ export function MultiVehicleEntryForm({ vehicleCount, onCancel, onAllComplete }:
             <CardTitle>Vehicle {currentForm + 1} of {vehicleCount}</CardTitle>
           </CardHeader>
           <CardContent>
-            <InvoiceEntryForm
+            <SimpleInvoiceForm
               onSuccess={() => handleFormSuccess(currentForm)}
               onCancel={() => {
                 // Find next incomplete form or stay on current
