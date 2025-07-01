@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import { FileText, Download, ZoomIn, ZoomOut, Move, Hand } from "lucide-react";
 import type { Invoice } from "@/lib/types";
 
 interface InvoicePreviewProps {
@@ -23,8 +23,12 @@ interface UploadedFile {
 export function InvoicePreview({ invoice }: InvoicePreviewProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(1.2);
   const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
+  const [panMode, setPanMode] = useState(false);
+  const [panning, setPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const fetchFiles = async () => {
@@ -47,9 +51,40 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
     fetchFiles();
   }, [invoice.id]);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
-  const handleZoomReset = () => setZoom(1);
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.5, 4));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.5, 0.8));
+  const handleZoomReset = () => {
+    setZoom(1.2);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (panMode) {
+      setPanning(true);
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (panning && panMode) {
+      setPanOffset({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(prev => Math.max(0.5, Math.min(4, prev + delta)));
+    }
+  };
 
   const handleDownload = (file: UploadedFile) => {
     const link = document.createElement('a');
@@ -117,6 +152,14 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
             <Button variant="outline" size="sm" onClick={handleZoomIn}>
               <ZoomIn className="h-4 w-4" />
             </Button>
+            <Button 
+              variant={panMode ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setPanMode(!panMode)}
+              title="Enable pan mode to drag and move the document around"
+            >
+              <Hand className="h-4 w-4" />
+            </Button>
             {selectedFile && (
               <Button variant="outline" size="sm" onClick={() => handleDownload(selectedFile)}>
                 <Download className="h-4 w-4" />
@@ -129,27 +172,75 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
         {selectedFile && (
           <div className="border rounded-lg overflow-hidden bg-white">
             {selectedFile.mimeType === 'application/pdf' ? (
-              <div className="h-96 w-full">
-                <iframe
-                  src={`/api/files/${selectedFile.id}#zoom=${zoom * 100}`}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 'none' }}
-                  title={selectedFile.originalName}
-                />
+              <div 
+                className="h-[600px] w-full overflow-auto relative"
+                style={{ 
+                  cursor: panMode ? (panning ? 'grabbing' : 'grab') : 'default',
+                }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+              >
+                <div
+                  style={{
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                    transformOrigin: 'top left',
+                    transition: panning ? 'none' : 'transform 0.1s ease-out',
+                    width: '100%',
+                    height: '100%',
+                    minWidth: '800px',
+                    minHeight: '1000px'
+                  }}
+                >
+                  <iframe
+                    src={`/api/files/${selectedFile.id}`}
+                    width="100%"
+                    height="100%"
+                    style={{ 
+                      border: 'none',
+                      pointerEvents: panMode ? 'none' : 'auto'
+                    }}
+                    title={selectedFile.originalName}
+                  />
+                </div>
               </div>
             ) : selectedFile.mimeType.startsWith('image/') ? (
-              <div className="flex justify-center items-center h-96 overflow-auto">
-                <img
-                  src={`/api/files/${selectedFile.id}`}
-                  alt={selectedFile.originalName}
-                  style={{ 
-                    transform: `scale(${zoom})`,
-                    maxWidth: 'none',
-                    transition: 'transform 0.2s'
+              <div 
+                className="h-[600px] w-full overflow-auto relative bg-gray-50"
+                style={{ 
+                  cursor: panMode ? (panning ? 'grabbing' : 'grab') : 'default',
+                }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+              >
+                <div
+                  style={{
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                    transition: panning ? 'none' : 'transform 0.1s ease-out',
+                    display: 'inline-block',
+                    minWidth: '100%',
+                    minHeight: '100%'
                   }}
-                  className="max-h-full"
-                />
+                >
+                  <img
+                    src={`/api/files/${selectedFile.id}`}
+                    alt={selectedFile.originalName}
+                    style={{ 
+                      transform: `scale(${zoom})`,
+                      transformOrigin: 'top left',
+                      maxWidth: 'none',
+                      transition: 'transform 0.2s',
+                      userSelect: 'none',
+                      pointerEvents: panMode ? 'none' : 'auto'
+                    }}
+                    draggable={false}
+                  />
+                </div>
               </div>
             ) : (
               <div className="h-96 flex items-center justify-center">
