@@ -106,15 +106,15 @@ This is a full-stack web application for processing vendor invoices with automat
 ```
 
 ## Recent Changes
-- July 1, 2025: Implemented multiple billing lines functionality
-  - Added billingLines table to database schema with comprehensive line item support
-  - Created BillingLinesForm component for managing multiple invoice line items
-  - Each line can have separate VIN, quantity, unit price, and GL code assignment
-  - Integrated tabs interface in data entry form (Invoice Details / Billing Lines)
-  - Automatic GL code assignment (1400) for VINs found in inventory
-  - Line items total validation against invoice total with alerts for mismatches
-  - Individual VIN lookup per line item with real-time feedback
-  - Full CRUD operations for billing lines with React hooks and API routes
+- July 1, 2025: Implemented simplified multiple vehicle data entry workflow
+  - Created VehicleSelectionForm for choosing single or multiple vehicles
+  - Added MultiVehicleEntryForm with progress tracking for multiple vehicles
+  - Each vehicle gets identical invoice data entry form with invoice document preview
+  - SimpleInvoiceForm component for streamlined data entry without complex billing lines
+  - Data entry person can see invoice document for each vehicle form
+  - Each completed form creates separate invoice line for approval/export
+  - Progress indicators show completed vs remaining vehicles
+  - Workflow matches actual business process: select vehicle count → duplicate forms
 
 - June 28, 2025: Added comprehensive admin review functionality
   - Created AdminEditModal component with full invoice editing capabilities

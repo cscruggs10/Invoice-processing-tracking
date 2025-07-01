@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Save, CheckCircle } from "lucide-react";
+import { X, Save, CheckCircle, ZoomIn, Download } from "lucide-react";
 import { SimpleInvoiceForm } from "./simple-invoice-form";
 import { useToast } from "@/hooks/use-toast";
 
@@ -73,25 +73,49 @@ export function MultiVehicleEntryForm({ vehicleCount, onCancel, onAllComplete }:
         ))}
       </div>
 
-      {/* Current form */}
+      {/* Current form with invoice preview */}
       {!completedForms.has(currentForm) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Vehicle {currentForm + 1} of {vehicleCount}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SimpleInvoiceForm
-              onSuccess={() => handleFormSuccess(currentForm)}
-              onCancel={() => {
-                // Find next incomplete form or stay on current
-                const nextIncomplete = vehicleForms.find(i => i > currentForm && !completedForms.has(i));
-                if (nextIncomplete !== undefined) {
-                  setCurrentForm(nextIncomplete);
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Invoice Document Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ZoomIn className="h-5 w-5" />
+                Invoice Document
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
+                <div className="text-center">
+                  <Download className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">Invoice preview will appear here</p>
+                  <Button variant="outline" className="mt-2">
+                    Download PDF
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vehicle Data Entry Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Vehicle {currentForm + 1} of {vehicleCount}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SimpleInvoiceForm
+                onSuccess={() => handleFormSuccess(currentForm)}
+                onCancel={() => {
+                  // Find next incomplete form or stay on current
+                  const nextIncomplete = vehicleForms.find(i => i > currentForm && !completedForms.has(i));
+                  if (nextIncomplete !== undefined) {
+                    setCurrentForm(nextIncomplete);
+                  }
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* All forms completed */}
