@@ -82,8 +82,20 @@ export class MemStorage implements IStorage {
   private currentExportId = 1;
 
   constructor() {
-    // Initialize with sample VIN data
-    this.initializeSampleData();
+    // Initialize with clean slate - no sample invoices
+    this.initializeCleanData();
+  }
+
+  private initializeCleanData() {
+    // Create admin user only - no sample invoices or VIN data
+    const adminUser: User = {
+      id: 1,
+      username: "admin",
+      password: "admin123",
+      role: "admin",
+      createdAt: new Date()
+    };
+    this.users.set(1, adminUser);
   }
 
   private initializeSampleData() {
