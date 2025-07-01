@@ -35,6 +35,52 @@ export default function Export() {
 
     setIsExporting(true);
     try {
+      // First, perform VIN lookups and GL code assignments for all approved invoices
+      toast({
+        title: "Processing VIN Lookups",
+        description: "Updating GL codes based on VIN database lookups...",
+      });
+
+      for (const invoice of approvedInvoices) {
+        if (invoice.vin && invoice.vin.length >= 8) {
+          const lastEightDigits = invoice.vin.slice(-8);
+          
+          try {
+            const vinResponse = await apiRequest('GET', `/api/vin-lookup/${lastEightDigits}`);
+            
+            // Update invoice with VIN lookup result and appropriate GL code
+            const glCode = vinResponse.found ? 
+              (vinResponse.database === 'wholesale_inventory' ? '1400' :
+               vinResponse.database === 'retail_inventory' ? '2100' :
+               vinResponse.database === 'sold' ? '2200' : 
+               vinResponse.database === 'current_account' ? '2300' : '2400') : '2400';
+
+            await apiRequest('PATCH', `/api/invoices/${invoice.id}`, {
+              glCode,
+              vinLookupResult: vinResponse
+            });
+          } catch (error) {
+            console.error(`VIN lookup failed for invoice ${invoice.id}:`, error);
+            // Assign default GL code if lookup fails
+            await apiRequest('PATCH', `/api/invoices/${invoice.id}`, {
+              glCode: '2400',
+              vinLookupResult: { found: false }
+            });
+          }
+        } else {
+          // No VIN or invalid VIN - assign default GL code
+          await apiRequest('PATCH', `/api/invoices/${invoice.id}`, {
+            glCode: '2400',
+            vinLookupResult: { found: false }
+          });
+        }
+      }
+
+      toast({
+        title: "Generating Export",
+        description: "Creating CSV file with updated GL codes...",
+      });
+
       const response = await apiRequest('POST', '/api/export/csv', {
         userId: 1, // TODO: Get from auth context
       });

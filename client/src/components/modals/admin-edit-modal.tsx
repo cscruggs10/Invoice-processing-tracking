@@ -245,11 +245,15 @@ export function AdminEditModal({ isOpen, onClose, invoice }: AdminEditModalProps
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="invoiceType">Invoice Type *</Label>
-              <Input
-                id="invoiceType"
-                {...form.register("invoiceType")}
-                placeholder="Parts, Service, etc."
-              />
+              <Select onValueChange={(value) => form.setValue("invoiceType", value)} defaultValue={form.getValues("invoiceType")}>
+                <SelectTrigger className={errors.invoiceType ? "border-red-500" : ""}>
+                  <SelectValue placeholder="Select invoice type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Charge">Charge</SelectItem>
+                  <SelectItem value="Credit Memo">Credit Memo</SelectItem>
+                </SelectContent>
+              </Select>
               {errors.invoiceType && (
                 <p className="text-sm text-red-600">{errors.invoiceType.message}</p>
               )}

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, X, Search, AlertCircle } from "lucide-react";
 import { useCreateInvoice } from "@/hooks/use-invoices";
-import { useVinLookup } from "@/hooks/use-vin-lookup";
+
 import { useToast } from "@/hooks/use-toast";
 import { insertInvoiceSchema } from "@shared/schema";
 
@@ -226,10 +226,8 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
               <SelectValue placeholder="Select invoice type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="parts">Parts</SelectItem>
-              <SelectItem value="service">Service</SelectItem>
-              <SelectItem value="warranty">Warranty</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="Charge">Charge</SelectItem>
+              <SelectItem value="Credit Memo">Credit Memo</SelectItem>
             </SelectContent>
           </Select>
           {form.formState.errors.invoiceType && (

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Info, Save, X } from "lucide-react";
@@ -234,11 +235,15 @@ export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps)
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="invoiceType">Invoice Type *</Label>
-          <Input
-            id="invoiceType"
-            {...form.register("invoiceType")}
-            placeholder="Parts, Service, etc."
-          />
+          <Select onValueChange={(value) => form.setValue("invoiceType", value)}>
+            <SelectTrigger className={errors.invoiceType ? "border-red-500" : ""}>
+              <SelectValue placeholder="Select invoice type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Charge">Charge</SelectItem>
+              <SelectItem value="Credit Memo">Credit Memo</SelectItem>
+            </SelectContent>
+          </Select>
           {errors.invoiceType && (
             <p className="text-sm text-red-600">{errors.invoiceType.message}</p>
           )}
