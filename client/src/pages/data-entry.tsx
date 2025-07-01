@@ -19,13 +19,25 @@ export default function DataEntry() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   
   // Get all invoices (will filter on display if needed)
-  const { data: allInvoices, isLoading } = useInvoices();
+  const { data: allInvoices, isLoading, refetch } = useInvoices();
+  
+  // Force refresh when component mounts
+  React.useEffect(() => {
+    refetch();
+  }, [refetch]);
   
   // Filter for invoices that need data entry
   const invoices = allInvoices?.filter(invoice => 
     invoice.status === "pending_entry" || 
     invoice.vendorName === "Pending Entry"
   );
+  
+  // Debug logging
+  console.log("Data Entry Debug:", {
+    allInvoices: allInvoices?.length || 0,
+    filteredInvoices: invoices?.length || 0,
+    rawData: allInvoices
+  });
 
   const handleInvoiceSelect = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
