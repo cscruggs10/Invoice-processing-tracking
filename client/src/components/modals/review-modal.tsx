@@ -39,8 +39,6 @@ export function ReviewModal({ isOpen, onClose, invoice, onApprove, onReject }: R
   const updateInvoiceStatus = useUpdateInvoiceStatus();
   const { toast } = useToast();
 
-  if (!invoice) return null;
-
   // Initialize edit data when invoice changes
   useEffect(() => {
     if (invoice) {
@@ -55,6 +53,8 @@ export function ReviewModal({ isOpen, onClose, invoice, onApprove, onReject }: R
       });
     }
   }, [invoice]);
+
+  if (!invoice) return null;
 
   const handleApprove = () => {
     onApprove(invoice.id);
