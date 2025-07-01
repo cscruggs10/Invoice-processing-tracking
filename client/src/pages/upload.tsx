@@ -66,6 +66,8 @@ export default function Upload() {
           body: JSON.stringify({ invoiceId: invoice.id }),
         });
         
+        console.log("File and invoice created:", { fileId: uploadedFile.id, invoiceId: invoice.id });
+        
         // Add to upload history
         const newUpload = {
           id: uploadedFile.id,

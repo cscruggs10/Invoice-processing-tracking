@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { SimpleInvoiceForm } from "@/components/forms/simple-invoice-form";
 import { VehicleSelectionForm } from "@/components/forms/vehicle-selection-form";
 import { MultiVehicleEntryForm } from "@/components/forms/multi-vehicle-entry-form";
+import { InvoicePreview } from "@/components/invoice-preview";
 import { ZoomIn, Download, ArrowLeft, FileText, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInvoices } from "@/hooks/use-invoices";
@@ -159,25 +160,9 @@ export default function DataEntry() {
       {currentStep === "vehicle-selection" && selectedInvoice && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Document Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ZoomIn className="h-5 w-5" />
-                Invoice Document
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
-                <div className="text-center">
-                  <Download className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Invoice preview will appear here</p>
-                  <Button variant="outline" className="mt-2">
-                    Download PDF
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div>
+            <InvoicePreview invoice={selectedInvoice} />
+          </div>
 
           {/* Vehicle Selection Form */}
           <div>
