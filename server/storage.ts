@@ -1,9 +1,9 @@
 import { 
-  users, invoices, uploadedFiles, auditLog, csvExports,
+  users, invoices, uploadedFiles, auditLog, csvExports, billingLines,
   wholesaleInventory, retailInventory, soldInventory, currentAccount,
   type User, type InsertUser, type Invoice, type InsertInvoice, 
   type UploadedFile, type InsertUploadedFile, type AuditLog, type InsertAuditLog,
-  type CsvExport, type InvoiceStatus, type VinLookupResult
+  type BillingLine, type InsertBillingLine, type CsvExport, type InvoiceStatus, type VinLookupResult
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -34,6 +34,12 @@ export interface IStorage {
   createUploadedFile(file: InsertUploadedFile): Promise<UploadedFile>;
   getUploadedFile(id: number): Promise<UploadedFile | undefined>;
   getFilesByInvoice(invoiceId: number): Promise<UploadedFile[]>;
+  
+  // Billing line management
+  createBillingLine(billingLine: InsertBillingLine): Promise<BillingLine>;
+  getBillingLinesByInvoice(invoiceId: number): Promise<BillingLine[]>;
+  updateBillingLine(id: number, updates: Partial<BillingLine>): Promise<BillingLine>;
+  deleteBillingLine(id: number): Promise<void>;
   
   // VIN lookup
   lookupVin(vin: string): Promise<VinLookupResult>;
