@@ -95,7 +95,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", async (req, res) => {
     try {
-      const invoiceData = insertInvoiceSchema.parse(req.body);
+      // Convert date strings to Date objects before validation
+      const requestData = {
+        ...req.body,
+        invoiceDate: new Date(req.body.invoiceDate),
+        dueDate: new Date(req.body.dueDate),
+      };
+      const invoiceData = insertInvoiceSchema.parse(requestData);
       
       // Perform VIN lookup
       const vinLookup = await storage.lookupVin(invoiceData.vin);
