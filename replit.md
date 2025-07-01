@@ -106,6 +106,14 @@ This is a full-stack web application for processing vendor invoices with automat
 ```
 
 ## Recent Changes
+- July 1, 2025: Fixed critical data entry form submission and duplicate invoice issues
+  - Fixed form submission button functionality - buttons now work correctly with proper event handling
+  - Fixed server-side status routing - server now respects frontend status instead of overriding with VIN lookup logic
+  - Fixed duplicate invoice creation - data entry now updates existing uploaded invoices instead of creating new ones
+  - Added proper error handling and debugging logs for invoice creation/update process
+  - Moved VIN lookup logic to export stage as designed, preventing premature admin review routing
+  - System now correctly routes invoices to pending_review status when submitted from data entry
+
 - July 1, 2025: Implemented simplified multiple vehicle data entry workflow
   - Created VehicleSelectionForm for choosing single or multiple vehicles
   - Added MultiVehicleEntryForm with progress tracking for multiple vehicles
