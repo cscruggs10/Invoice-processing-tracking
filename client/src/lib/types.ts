@@ -24,3 +24,25 @@ export interface InvoiceFormData {
   description?: string;
   dueDate: string;
 }
+
+export interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  vendorName: string;
+  vendorNumber: string;
+  invoiceDate: Date;
+  invoiceAmount: string;
+  dueDate: Date;
+  vin: string;
+  invoiceType: string;
+  description: string | null;
+  uploadedBy: number;
+  status: InvoiceStatus;
+  glCode: string | null;
+  enteredBy: number | null;
+  approvedBy: number | null;
+  finalizedBy: number | null;
+  vinLookupResult: VinLookupResult | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

@@ -1,13 +1,29 @@
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit } from "lucide-react";
 import { useInvoices } from "@/hooks/use-invoices";
+import { AdminEditModal } from "@/components/modals/admin-edit-modal";
+import type { Invoice } from "@/lib/types";
 
 export default function AdminReview() {
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
   const { data: invoices, isLoading } = useInvoices({ 
     status: ["admin_review"] 
   });
+
+  const handleEditInvoice = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedInvoice(null);
+  };
 
   const getStatusBadgeVariant = (database?: string) => {
     switch (database) {
@@ -82,9 +98,13 @@ export default function AdminReview() {
                       }
                     </td>
                     <td className="py-3">
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleEditInvoice(invoice)}
+                      >
                         <Edit className="h-4 w-4 mr-1" />
-                        Assign GL
+                        Edit & Assign GL
                       </Button>
                     </td>
                   </tr>
@@ -100,6 +120,13 @@ export default function AdminReview() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Admin Edit Modal */}
+      <AdminEditModal 
+        isOpen={isEditModalOpen}
+        onClose={handleCloseModal}
+        invoice={selectedInvoice}
+      />
     </div>
   );
 }
