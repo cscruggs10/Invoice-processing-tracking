@@ -242,14 +242,6 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
       <div className="flex gap-2 pt-4">
         <button 
           type="button"
-          onClick={() => alert("TEST BUTTON CLICKED!")}
-          className="px-2 py-1 bg-red-500 text-white text-xs rounded"
-        >
-          TEST
-        </button>
-        
-        <button 
-          type="button"
           onClick={async () => {
             console.log("Submit button clicked!");
             
