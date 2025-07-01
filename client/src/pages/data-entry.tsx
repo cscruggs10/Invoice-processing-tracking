@@ -18,10 +18,14 @@ export default function DataEntry() {
   const [vehicleCount, setVehicleCount] = useState(1);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   
-  // Get invoices that need data entry
-  const { data: invoices, isLoading } = useInvoices({
-    status: ["pending_entry"]
-  });
+  // Get all invoices (will filter on display if needed)
+  const { data: allInvoices, isLoading } = useInvoices();
+  
+  // Filter for invoices that need data entry
+  const invoices = allInvoices?.filter(invoice => 
+    invoice.status === "pending_entry" || 
+    invoice.vendorName === "Pending Entry"
+  );
 
   const handleInvoiceSelect = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
