@@ -105,6 +105,15 @@ This is a full-stack web application for processing vendor invoices with automat
 /migrations      # Database migration files
 ```
 
+## Recent Changes
+- June 28, 2025: Added comprehensive admin review functionality
+  - Created AdminEditModal component with full invoice editing capabilities
+  - Added GL code assignment dropdown with common codes (1400, 2100, 2200, 2300, 2400)
+  - Implemented "Send to Admin Review" button in data entry form
+  - Admin can edit all invoice fields and assign GL codes before approval
+  - Fixed date validation errors in invoice creation API
+  - Enhanced workflow with direct admin review routing option
+
 ## Changelog
 - June 27, 2025. Initial setup
 

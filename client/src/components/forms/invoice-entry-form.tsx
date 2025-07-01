@@ -86,6 +86,33 @@ export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps)
     }
   };
 
+  const onSubmitToAdminReview = async (data: InvoiceFormData) => {
+    try {
+      await createInvoice.mutateAsync({
+        vendorName: data.vendorName,
+        vendorNumber: data.vendorNumber,
+        invoiceNumber: data.invoiceNumber,
+        invoiceDate: new Date(data.invoiceDate),
+        invoiceAmount: data.invoiceAmount.toString(),
+        dueDate: new Date(data.dueDate),
+        vin: data.vin,
+        invoiceType: data.invoiceType,
+        description: data.description || null,
+        uploadedBy: 1, // TODO: Get from auth context
+        status: "admin_review",
+        glCode: null,
+        enteredBy: 1,
+        approvedBy: null,
+        finalizedBy: null,
+        vinLookupResult: { found: false }, // Force admin review
+      });
+      
+      onSuccess?.();
+    } catch (error) {
+      console.error("Failed to create invoice:", error);
+    }
+  };
+
   const getVinLookupMessage = () => {
     if (!vinLookup.data || !vinLookup.data.found) {
       return { type: "warning", message: "VIN not found in any database. Will be routed to Admin Review." };
@@ -246,6 +273,15 @@ export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps)
         >
           <Save className="h-4 w-4 mr-2" />
           Save & Submit for Review
+        </Button>
+        <Button 
+          type="button"
+          onClick={handleSubmit(onSubmitToAdminReview)}
+          disabled={isSubmitting || createInvoice.isPending}
+          className="bg-orange-600 hover:bg-orange-700"
+        >
+          <Save className="h-4 w-4 mr-2" />
+          Send to Admin Review
         </Button>
         {onCancel && (
           <Button 
