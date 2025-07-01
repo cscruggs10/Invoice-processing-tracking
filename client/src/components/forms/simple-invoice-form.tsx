@@ -47,9 +47,6 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
     },
   });
 
-  const watchedVin = form.watch("vin");
-  const vinLookup = useVinLookup(watchedVin);
-
   const onSubmit = async (data: InvoiceFormData) => {
     setIsSubmitting(true);
     try {
@@ -61,8 +58,9 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
         invoiceAmount: data.invoiceAmount.toString(),
         uploadedBy: 1, // TODO: Get from auth context
         status: "pending_review" as const,
-        vinLookupResult: vinLookup.data || { found: false },
-        glCode: vinLookup.data?.found ? "1400" : null,
+        // VIN lookup will be performed during export process
+        vinLookupResult: null,
+        glCode: null,
       };
 
       await createInvoice.mutateAsync(invoiceData);
@@ -94,7 +92,7 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
         invoiceAmount: data.invoiceAmount.toString(),
         uploadedBy: 1,
         status: "admin_review" as const,
-        vinLookupResult: vinLookup.data || { found: false },
+        vinLookupResult: null,
         glCode: null,
       };
 
@@ -198,22 +196,12 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
 
         <div className="space-y-2">
           <Label htmlFor="vin">VIN *</Label>
-          <div className="flex gap-2">
-            <Input
-              id="vin"
-              {...form.register("vin")}
-              className={form.formState.errors.vin ? "border-red-500" : ""}
-              placeholder="Enter VIN"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              disabled={!watchedVin || vinLookup.isLoading}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
+          <Input
+            id="vin"
+            {...form.register("vin")}
+            className={form.formState.errors.vin ? "border-red-500" : ""}
+            placeholder="Enter VIN (GL code will be assigned during export)"
+          />
           {form.formState.errors.vin && (
             <p className="text-sm text-red-500">{form.formState.errors.vin.message}</p>
           )}
@@ -246,24 +234,7 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
         />
       </div>
 
-      {/* VIN Lookup Results */}
-      {vinLookup.data && (
-        <Alert className={vinLookup.data.found ? "border-green-500" : "border-orange-500"}>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {vinLookup.data.found ? (
-              <span className="text-green-700">
-                VIN found in {vinLookup.data.database} database
-                {vinLookup.data.daysSinceUpdate && ` (${vinLookup.data.daysSinceUpdate} days since update)`}
-                <br />
-                GL Code: 1400 (will be auto-assigned)
-              </span>
-            ) : (
-              <span className="text-orange-700">VIN not found in inventory - requires manual GL code assignment</span>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* VIN lookup and GL code assignment will happen during export process */}
 
       <div className="flex gap-2 pt-4">
         <Button 

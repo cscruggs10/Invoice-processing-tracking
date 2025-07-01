@@ -46,18 +46,18 @@ export default function Export() {
           const lastEightDigits = invoice.vin.slice(-8);
           
           try {
-            const vinResponse = await apiRequest('GET', `/api/vin-lookup/${lastEightDigits}`);
+            const vinLookupResult = await apiRequest('GET', `/api/vin-lookup/${lastEightDigits}`);
             
             // Update invoice with VIN lookup result and appropriate GL code
-            const glCode = vinResponse.found ? 
-              (vinResponse.database === 'wholesale_inventory' ? '1400' :
-               vinResponse.database === 'retail_inventory' ? '2100' :
-               vinResponse.database === 'sold' ? '2200' : 
-               vinResponse.database === 'current_account' ? '2300' : '2400') : '2400';
+            const glCode = vinLookupResult.found ? 
+              (vinLookupResult.database === 'wholesale_inventory' ? '1400' :
+               vinLookupResult.database === 'retail_inventory' ? '2100' :
+               vinLookupResult.database === 'sold' ? '2200' : 
+               vinLookupResult.database === 'current_account' ? '2300' : '2400') : '2400';
 
             await apiRequest('PATCH', `/api/invoices/${invoice.id}`, {
               glCode,
-              vinLookupResult: vinResponse
+              vinLookupResult: vinLookupResult
             });
           } catch (error) {
             console.error(`VIN lookup failed for invoice ${invoice.id}:`, error);
