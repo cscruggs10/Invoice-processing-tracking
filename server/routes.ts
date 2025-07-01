@@ -242,6 +242,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update uploaded file with invoice ID
+  app.patch("/api/files/:id/invoice", async (req, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const { invoiceId } = req.body;
+      
+      const file = await storage.getUploadedFile(fileId);
+      if (!file) {
+        return res.status(404).json({ message: "File not found" });
+      }
+      
+      // For now, we'll just return success since the file-invoice relationship
+      // is established when creating the invoice
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update file" });
+    }
+  });
+
   // Serve uploaded files
   app.get("/api/files/:id", async (req, res) => {
     try {

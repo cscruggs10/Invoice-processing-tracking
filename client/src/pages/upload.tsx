@@ -5,28 +5,70 @@ import { UploadZone } from "@/components/upload/upload-zone";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Upload() {
-  const [uploadHistory, setUploadHistory] = useState([
-    { id: 1, name: "invoice_001.pdf", time: "Today, 2:30 PM", status: "uploaded" },
-    { id: 2, name: "receipt_scan.jpg", time: "Today, 1:45 PM", status: "processing" },
-    { id: 3, name: "vendor_bill.pdf", time: "Today, 11:20 AM", status: "uploaded" },
-  ]);
+  const [uploadHistory, setUploadHistory] = useState([]);
   
   const { toast } = useToast();
 
   const handleFileUpload = async (files: File[]) => {
     try {
-      // TODO: Implement actual file upload to server
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('userId', '1'); // TODO: Get from auth context
         
-        // Simulate API call
-        console.log('Uploading file:', file.name);
+        // Upload file to server
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed');
+        }
+        
+        const uploadedFile = await uploadResponse.json();
+        
+        // Create invoice record for uploaded file
+        const invoiceData = {
+          vendorName: "Pending Entry",
+          vendorNumber: "TBD",
+          invoiceNumber: `UPLOAD-${Date.now()}`,
+          invoiceDate: new Date().toISOString().split('T')[0],
+          invoiceAmount: "0.00",
+          vin: "",
+          invoiceType: "Parts",
+          description: `Uploaded file: ${file.name}`,
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+          uploadedBy: 1,
+          status: "pending_entry",
+        };
+        
+        const invoiceResponse = await fetch('/api/invoices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(invoiceData),
+        });
+        
+        if (!invoiceResponse.ok) {
+          throw new Error('Failed to create invoice');
+        }
+        
+        const invoice = await invoiceResponse.json();
+        
+        // Update uploaded file with invoice ID
+        await fetch(`/api/files/${uploadedFile.id}/invoice`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ invoiceId: invoice.id }),
+        });
         
         // Add to upload history
         const newUpload = {
-          id: Date.now() + Math.random(),
+          id: uploadedFile.id,
           name: file.name,
           time: new Date().toLocaleString(),
           status: "uploaded" as const,
@@ -37,9 +79,10 @@ export default function Upload() {
       
       toast({
         title: "Upload Successful",
-        description: `${files.length} file(s) uploaded successfully`,
+        description: `${files.length} file(s) uploaded and added to data entry queue`,
       });
     } catch (error) {
+      console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
         description: "There was an error uploading your files",
