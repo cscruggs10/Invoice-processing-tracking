@@ -262,6 +262,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Billing Lines Routes
+  app.get("/api/invoices/:id/billing-lines", async (req, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      const billingLines = await storage.getBillingLinesByInvoice(invoiceId);
+      res.json(billingLines);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get billing lines" });
+    }
+  });
+
+  app.post("/api/billing-lines", async (req, res) => {
+    try {
+      const billingLine = await storage.createBillingLine(req.body);
+      res.json(billingLine);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create billing line" });
+    }
+  });
+
+  app.patch("/api/billing-lines/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const billingLine = await storage.updateBillingLine(id, updates);
+      res.json(billingLine);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update billing line" });
+    }
+  });
+
+  app.delete("/api/billing-lines/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteBillingLine(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete billing line" });
+    }
+  });
+
   // CSV Export
   app.post("/api/export/csv", async (req, res) => {
     try {

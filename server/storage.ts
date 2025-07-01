@@ -65,6 +65,7 @@ export class MemStorage implements IStorage {
   private users: Map<number, User> = new Map();
   private invoices: Map<number, Invoice> = new Map();
   private uploadedFiles: Map<number, UploadedFile> = new Map();
+  private billingLines: Map<number, BillingLine> = new Map();
   private auditLogs: Map<number, AuditLog> = new Map();
   private csvExports: Map<number, CsvExport> = new Map();
   private wholesaleVins: Map<string, { lastUpdated: Date }> = new Map();
@@ -75,6 +76,7 @@ export class MemStorage implements IStorage {
   private currentUserId = 1;
   private currentInvoiceId = 1;
   private currentFileId = 1;
+  private currentBillingLineId = 1;
   private currentAuditId = 1;
   private currentExportId = 1;
 
@@ -369,6 +371,50 @@ export class MemStorage implements IStorage {
       .filter(file => file.invoiceId === invoiceId);
   }
 
+  async createBillingLine(insertBillingLine: InsertBillingLine): Promise<BillingLine> {
+    const billingLine: BillingLine = {
+      id: this.currentBillingLineId++,
+      invoiceId: insertBillingLine.invoiceId,
+      lineNumber: insertBillingLine.lineNumber,
+      description: insertBillingLine.description,
+      quantity: insertBillingLine.quantity,
+      unitPrice: insertBillingLine.unitPrice,
+      totalAmount: insertBillingLine.totalAmount,
+      vin: insertBillingLine.vin || null,
+      glCode: insertBillingLine.glCode || null,
+      vinLookupResult: insertBillingLine.vinLookupResult as VinLookupResult | null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.billingLines.set(billingLine.id, billingLine);
+    return billingLine;
+  }
+
+  async getBillingLinesByInvoice(invoiceId: number): Promise<BillingLine[]> {
+    return Array.from(this.billingLines.values())
+      .filter(line => line.invoiceId === invoiceId)
+      .sort((a, b) => a.lineNumber - b.lineNumber);
+  }
+
+  async updateBillingLine(id: number, updates: Partial<BillingLine>): Promise<BillingLine> {
+    const existingLine = this.billingLines.get(id);
+    if (!existingLine) {
+      throw new Error("Billing line not found");
+    }
+    
+    const updatedLine: BillingLine = {
+      ...existingLine,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.billingLines.set(id, updatedLine);
+    return updatedLine;
+  }
+
+  async deleteBillingLine(id: number): Promise<void> {
+    this.billingLines.delete(id);
+  }
+
   async lookupVin(vin: string): Promise<VinLookupResult> {
     // Check wholesale inventory
     if (this.wholesaleVins.has(vin)) {
@@ -613,6 +659,34 @@ export class DatabaseStorage implements IStorage {
 
   async getFilesByInvoice(invoiceId: number): Promise<UploadedFile[]> {
     return this.db.select().from(uploadedFiles).where(eq(uploadedFiles.invoiceId, invoiceId));
+  }
+
+  async createBillingLine(insertBillingLine: InsertBillingLine): Promise<BillingLine> {
+    const result = await this.db.insert(billingLines).values(insertBillingLine).returning();
+    return result[0];
+  }
+
+  async getBillingLinesByInvoice(invoiceId: number): Promise<BillingLine[]> {
+    return this.db.select().from(billingLines)
+      .where(eq(billingLines.invoiceId, invoiceId))
+      .orderBy(billingLines.lineNumber);
+  }
+
+  async updateBillingLine(id: number, updates: Partial<BillingLine>): Promise<BillingLine> {
+    const result = await this.db.update(billingLines)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(billingLines.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error("Billing line not found");
+    }
+    
+    return result[0];
+  }
+
+  async deleteBillingLine(id: number): Promise<void> {
+    await this.db.delete(billingLines).where(eq(billingLines.id, id));
   }
 
   async lookupVin(vin: string): Promise<VinLookupResult> {
