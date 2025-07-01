@@ -28,6 +28,7 @@ interface SimpleInvoiceFormProps {
 }
 
 export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProps) {
+  console.log("SimpleInvoiceForm component rendered");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const createInvoice = useCreateInvoice();
@@ -239,6 +240,14 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
       {/* VIN lookup and GL code assignment will happen during export process */}
 
       <div className="flex gap-2 pt-4">
+        <button 
+          type="button"
+          onClick={() => alert("TEST BUTTON CLICKED!")}
+          className="px-2 py-1 bg-red-500 text-white text-xs rounded"
+        >
+          TEST
+        </button>
+        
         <button 
           type="button"
           onClick={() => {
