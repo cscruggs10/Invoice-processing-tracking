@@ -33,7 +33,7 @@ const navigationItems: NavigationItem[] = [
     href: "/entry", 
     label: "Data Entry Queue", 
     icon: Keyboard,
-    getCount: (stats) => stats?.totalPending || 0
+    getCount: (stats, invoices) => invoices?.filter((inv: any) => inv.status === "pending_entry").length || 0
   },
   { 
     href: "/review", 

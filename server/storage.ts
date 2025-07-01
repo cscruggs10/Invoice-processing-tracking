@@ -413,7 +413,7 @@ export class MemStorage implements IStorage {
     
     return {
       totalPending: allInvoices.filter(inv => 
-        ["pending_entry", "pending_review"].includes(inv.status)
+        inv.status === "pending_entry"
       ).length,
       readyToExport: allInvoices.filter(inv => inv.status === "approved").length,
       todaysTotal: todaysInvoices.reduce((sum, inv) => 
