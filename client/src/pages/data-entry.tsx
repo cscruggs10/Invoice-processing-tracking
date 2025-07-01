@@ -1,18 +1,32 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SimpleInvoiceForm } from "@/components/forms/simple-invoice-form";
 import { VehicleSelectionForm } from "@/components/forms/vehicle-selection-form";
 import { MultiVehicleEntryForm } from "@/components/forms/multi-vehicle-entry-form";
-import { ZoomIn, Download, ArrowLeft } from "lucide-react";
+import { ZoomIn, Download, ArrowLeft, FileText, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useInvoices } from "@/hooks/use-invoices";
+import type { Invoice } from "@/lib/types";
 
-type EntryStep = "selection" | "single" | "multiple";
+type EntryStep = "queue" | "vehicle-selection" | "single" | "multiple";
 
 export default function DataEntry() {
   const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState<EntryStep>("selection");
+  const [currentStep, setCurrentStep] = useState<EntryStep>("queue");
   const [vehicleCount, setVehicleCount] = useState(1);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  
+  // Get invoices that need data entry
+  const { data: invoices, isLoading } = useInvoices({
+    status: ["pending_entry"]
+  });
+
+  const handleInvoiceSelect = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setCurrentStep("vehicle-selection");
+  };
 
   const handleVehicleSelection = (count: number) => {
     setVehicleCount(count);
@@ -24,8 +38,9 @@ export default function DataEntry() {
       title: "Invoice Submitted",
       description: "Invoice has been submitted for review",
     });
-    // Reset to selection for next invoice
-    setCurrentStep("selection");
+    // Reset to queue for next invoice
+    setCurrentStep("queue");
+    setSelectedInvoice(null);
   };
 
   const handleSkipInvoice = () => {
@@ -33,18 +48,39 @@ export default function DataEntry() {
       title: "Invoice Skipped",
       description: "Moving to next invoice in queue",
     });
-    setCurrentStep("selection");
+    setCurrentStep("queue");
+    setSelectedInvoice(null);
   };
 
-  const handleBackToSelection = () => {
-    setCurrentStep("selection");
+  const handleBackToQueue = () => {
+    setCurrentStep("queue");
+    setSelectedInvoice(null);
   };
+
+  const handleBackToVehicleSelection = () => {
+    setCurrentStep("vehicle-selection");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-20 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
-        {currentStep !== "selection" && (
-          <Button variant="outline" onClick={handleBackToSelection}>
+        {currentStep !== "queue" && (
+          <Button variant="outline" onClick={currentStep === "vehicle-selection" ? handleBackToQueue : handleBackToVehicleSelection}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -52,14 +88,59 @@ export default function DataEntry() {
         <div>
           <h1 className="text-2xl font-bold">Data Entry Queue</h1>
           <p className="text-gray-600">
-            {currentStep === "selection" && "Select vehicle type for this invoice"}
+            {currentStep === "queue" && `${invoices?.length || 0} invoices awaiting data entry`}
+            {currentStep === "vehicle-selection" && "Select vehicle type for this invoice"}
             {currentStep === "single" && "Enter invoice data for single vehicle"}
             {currentStep === "multiple" && `Enter invoice data for ${vehicleCount} vehicles`}
           </p>
         </div>
       </div>
 
-      {currentStep === "selection" && (
+      {/* Invoice Queue */}
+      {currentStep === "queue" && (
+        <div className="space-y-4">
+          {invoices && invoices.length > 0 ? (
+            invoices.map((invoice) => (
+              <Card key={invoice.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleInvoiceSelect(invoice)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <FileText className="h-8 w-8 text-gray-400" />
+                      <div>
+                        <h3 className="font-medium">{invoice.invoiceNumber}</h3>
+                        <p className="text-sm text-gray-600">{invoice.description || "No description"}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Calendar className="h-3 w-3 text-gray-400" />
+                          <span className="text-xs text-gray-500">
+                            Uploaded {new Date(invoice.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="secondary">Pending Entry</Badge>
+                      <Button className="mt-2">
+                        Start Entry
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No invoices in queue</h3>
+                <p className="text-gray-600">Upload invoices to begin data entry</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Vehicle Selection */}
+      {currentStep === "vehicle-selection" && selectedInvoice && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Document Preview */}
           <Card>
@@ -89,7 +170,8 @@ export default function DataEntry() {
         </div>
       )}
 
-      {currentStep === "single" && (
+      {/* Single Vehicle Entry */}
+      {currentStep === "single" && selectedInvoice && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Document Preview */}
           <Card>
@@ -127,10 +209,11 @@ export default function DataEntry() {
         </div>
       )}
 
-      {currentStep === "multiple" && (
+      {/* Multiple Vehicle Entry */}
+      {currentStep === "multiple" && selectedInvoice && (
         <MultiVehicleEntryForm
           vehicleCount={vehicleCount}
-          onCancel={handleBackToSelection}
+          onCancel={handleBackToVehicleSelection}
           onAllComplete={handleFormSuccess}
         />
       )}
