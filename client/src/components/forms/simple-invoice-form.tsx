@@ -243,6 +243,12 @@ export function SimpleInvoiceForm({ onSuccess, onCancel }: SimpleInvoiceFormProp
           type="submit"
           disabled={isSubmitting || createInvoice.isPending}
           className="bg-green-600 hover:bg-green-700"
+          onClick={() => {
+            console.log("Button clicked!");
+            console.log("Form state:", form.formState);
+            console.log("Form values:", form.getValues());
+            console.log("Form errors:", form.formState.errors);
+          }}
         >
           <Save className="h-4 w-4 mr-2" />
           Save & Submit for Review
