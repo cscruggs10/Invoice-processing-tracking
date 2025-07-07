@@ -10,11 +10,33 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const vendors = pgTable("vendors", {
+  id: serial("id").primaryKey(),
+  vendorNumber: text("vendor_number").notNull().unique(),
+  vendorName: text("vendor_name").notNull(),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  country: text("country").default("USA"),
+  phone: text("phone"),
+  email: text("email"),
+  contactPerson: text("contact_person"),
+  paymentTerms: text("payment_terms"), // e.g., "Net 30", "Net 15", "COD"
+  defaultGlCode: text("default_gl_code"),
+  taxId: text("tax_id"),
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   invoiceNumber: text("invoice_number").notNull(),
-  vendorName: text("vendor_name").notNull(),
-  vendorNumber: text("vendor_number").notNull(),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  vendorName: text("vendor_name").notNull(), // Keep for backward compatibility and manual entry
+  vendorNumber: text("vendor_number").notNull(), // Keep for backward compatibility and manual entry
   invoiceDate: timestamp("invoice_date").notNull(),
   invoiceAmount: decimal("invoice_amount", { precision: 10, scale: 2 }).notNull(),
   dueDate: timestamp("due_date").notNull(),
@@ -131,6 +153,12 @@ export const insertBillingLineSchema = createInsertSchema(billingLines).omit({
   updatedAt: true,
 });
 
+export const insertVendorSchema = createInsertSchema(vendors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -142,6 +170,8 @@ export type AuditLog = typeof auditLog.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type BillingLine = typeof billingLines.$inferSelect;
 export type InsertBillingLine = z.infer<typeof insertBillingLineSchema>;
+export type Vendor = typeof vendors.$inferSelect;
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type CsvExport = typeof csvExports.$inferSelect;
 
 export type InvoiceStatus = "pending_entry" | "pending_review" | "admin_review" | "approved" | "finalized" | "paid";

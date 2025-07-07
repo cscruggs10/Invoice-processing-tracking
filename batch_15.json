@@ -1,0 +1,37 @@
+{
+  "vendors": [
+    {
+      "vendorNumber": "Yalobusha Justice",
+      "vendorName": "Yalobusha County Justice Court",
+      "address": null,
+      "city": null,
+      "state": null,
+      "zipCode": null,
+      "phone": null,
+      "email": null,
+      "isActive": true
+    },
+    {
+      "vendorNumber": "Yazoo Justice Court",
+      "vendorName": "Yazoo County Justice Court",
+      "address": null,
+      "city": null,
+      "state": null,
+      "zipCode": null,
+      "phone": null,
+      "email": null,
+      "isActive": true
+    },
+    {
+      "vendorNumber": "ZBrothers",
+      "vendorName": "Z Brothers Expedited",
+      "address": "LLC",
+      "city": "709 Plaze Dr Suite 2-198",
+      "state": "Chesterton",
+      "zipCode": "IN",
+      "phone": null,
+      "email": "1400",
+      "isActive": true
+    }
+  ]
+}

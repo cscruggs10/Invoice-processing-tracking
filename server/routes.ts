@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertInvoiceSchema, insertUploadedFileSchema, insertAuditLogSchema, type InvoiceStatus } from "@shared/schema";
+import { insertInvoiceSchema, insertUploadedFileSchema, insertAuditLogSchema, insertVendorSchema, type InvoiceStatus } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -44,6 +44,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // Vendor routes
+  app.get("/api/vendors", async (req, res) => {
+    try {
+      const { search, active } = req.query;
+      const filters: any = {};
+      
+      if (search) filters.search = search as string;
+      if (active !== undefined) filters.active = active === 'true';
+      
+      const vendors = await storage.getVendors(filters);
+      res.json(vendors);
+    } catch (error) {
+      console.error("Failed to fetch vendors:", error);
+      res.status(500).json({ message: "Failed to fetch vendors" });
+    }
+  });
+
+  app.get("/api/vendors/:id", async (req, res) => {
+    try {
+      const vendor = await storage.getVendor(parseInt(req.params.id));
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      res.json(vendor);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch vendor" });
+    }
+  });
+
+  app.post("/api/vendors", async (req, res) => {
+    try {
+      const validatedData = insertVendorSchema.parse(req.body);
+      const vendor = await storage.createVendor(validatedData);
+      res.status(201).json(vendor);
+    } catch (error) {
+      console.error("Failed to create vendor:", error);
+      res.status(500).json({ message: "Failed to create vendor" });
+    }
+  });
+
+  app.patch("/api/vendors/:id", async (req, res) => {
+    try {
+      const vendor = await storage.updateVendor(parseInt(req.params.id), req.body);
+      res.json(vendor);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update vendor" });
+    }
+  });
+
+  // Bulk import vendors from CSV
+  app.post("/api/vendors/import", async (req, res) => {
+    try {
+      const { vendors } = req.body;
+      const importedVendors = [];
+      
+      for (const vendorData of vendors) {
+        try {
+          // Check if vendor already exists
+          const existing = await storage.getVendorByNumber(vendorData.vendorNumber);
+          if (!existing) {
+            const vendor = await storage.createVendor(vendorData);
+            importedVendors.push(vendor);
+          }
+        } catch (error) {
+          console.error(`Failed to import vendor ${vendorData.vendorNumber}:`, error);
+        }
+      }
+      
+      res.json({ 
+        message: `Imported ${importedVendors.length} vendors`, 
+        imported: importedVendors.length 
+      });
+    } catch (error) {
+      console.error("Failed to import vendors:", error);
+      res.status(500).json({ message: "Failed to import vendors" });
     }
   });
 

@@ -1,9 +1,10 @@
 import { 
-  users, invoices, uploadedFiles, auditLog, csvExports, billingLines,
+  users, invoices, uploadedFiles, auditLog, csvExports, billingLines, vendors,
   wholesaleInventory, retailInventory, soldInventory, currentAccount,
   type User, type InsertUser, type Invoice, type InsertInvoice, 
   type UploadedFile, type InsertUploadedFile, type AuditLog, type InsertAuditLog,
-  type BillingLine, type InsertBillingLine, type CsvExport, type InvoiceStatus, type VinLookupResult
+  type BillingLine, type InsertBillingLine, type Vendor, type InsertVendor,
+  type CsvExport, type InvoiceStatus, type VinLookupResult
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -14,6 +15,16 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Vendor management
+  getVendors(filters?: {
+    active?: boolean;
+    search?: string;
+  }): Promise<Vendor[]>;
+  getVendor(id: number): Promise<Vendor | undefined>;
+  getVendorByNumber(vendorNumber: string): Promise<Vendor | undefined>;
+  createVendor(vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(id: number, updates: Partial<Vendor>): Promise<Vendor>;
   
   // Invoice management
   getInvoices(filters?: {
@@ -64,6 +75,7 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<number, User> = new Map();
+  private vendors: Map<number, Vendor> = new Map();
   private invoices: Map<number, Invoice> = new Map();
   private uploadedFiles: Map<number, UploadedFile> = new Map();
   private billingLines: Map<number, BillingLine> = new Map();
@@ -75,6 +87,7 @@ export class MemStorage implements IStorage {
   private currentAccountVins: Map<string, { lastUpdated: Date }> = new Map();
   
   private currentUserId = 1;
+  private currentVendorId = 1;
   private currentInvoiceId = 1;
   private currentFileId = 1;
   private currentBillingLineId = 1;
@@ -137,6 +150,62 @@ export class MemStorage implements IStorage {
     };
     this.users.set(user.id, user);
     return user;
+  }
+
+  async getVendors(filters?: {
+    active?: boolean;
+    search?: string;
+  }): Promise<Vendor[]> {
+    let vendorsList = Array.from(this.vendors.values());
+    
+    if (filters?.active !== undefined) {
+      vendorsList = vendorsList.filter(v => v.isActive === filters.active);
+    }
+    
+    if (filters?.search) {
+      const searchTerm = filters.search.toLowerCase();
+      vendorsList = vendorsList.filter(v => 
+        v.vendorName.toLowerCase().includes(searchTerm) ||
+        v.vendorNumber.toLowerCase().includes(searchTerm) ||
+        (v.contactPerson && v.contactPerson.toLowerCase().includes(searchTerm))
+      );
+    }
+    
+    return vendorsList;
+  }
+
+  async getVendor(id: number): Promise<Vendor | undefined> {
+    return this.vendors.get(id);
+  }
+
+  async getVendorByNumber(vendorNumber: string): Promise<Vendor | undefined> {
+    return Array.from(this.vendors.values()).find(v => v.vendorNumber === vendorNumber);
+  }
+
+  async createVendor(insertVendor: InsertVendor): Promise<Vendor> {
+    const vendor: Vendor = {
+      ...insertVendor,
+      id: this.currentVendorId++,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.vendors.set(vendor.id, vendor);
+    return vendor;
+  }
+
+  async updateVendor(id: number, updates: Partial<Vendor>): Promise<Vendor> {
+    const vendor = this.vendors.get(id);
+    if (!vendor) {
+      throw new Error(`Vendor with id ${id} not found`);
+    }
+    
+    const updatedVendor: Vendor = {
+      ...vendor,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.vendors.set(id, updatedVendor);
+    return updatedVendor;
   }
 
   async getInvoices(filters?: {
@@ -463,6 +532,62 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await this.db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async getVendors(filters?: {
+    active?: boolean;
+    search?: string;
+  }): Promise<Vendor[]> {
+    let query = this.db.select().from(vendors);
+    
+    const conditions = [];
+    
+    if (filters?.active !== undefined) {
+      conditions.push(eq(vendors.isActive, filters.active));
+    }
+    
+    if (filters?.search) {
+      const searchTerm = `%${filters.search}%`;
+      conditions.push(
+        // Search in vendor name, number, or contact person
+        // Using ilike for case-insensitive search
+        ilike(vendors.vendorName, searchTerm)
+      );
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return query.orderBy(vendors.vendorName);
+  }
+
+  async getVendor(id: number): Promise<Vendor | undefined> {
+    const result = await this.db.select().from(vendors).where(eq(vendors.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getVendorByNumber(vendorNumber: string): Promise<Vendor | undefined> {
+    const result = await this.db.select().from(vendors).where(eq(vendors.vendorNumber, vendorNumber)).limit(1);
+    return result[0];
+  }
+
+  async createVendor(insertVendor: InsertVendor): Promise<Vendor> {
+    const result = await this.db.insert(vendors).values(insertVendor).returning();
+    return result[0];
+  }
+
+  async updateVendor(id: number, updates: Partial<Vendor>): Promise<Vendor> {
+    const result = await this.db.update(vendors)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(vendors.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`Vendor with id ${id} not found`);
+    }
+    
     return result[0];
   }
 

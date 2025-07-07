@@ -13,6 +13,7 @@ import { useCreateInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 
 import { useToast } from "@/hooks/use-toast";
 import { insertInvoiceSchema } from "@shared/schema";
+import { VendorSelect } from "@/components/vendor-select";
 
 const invoiceFormSchema = insertInvoiceSchema.extend({
   invoiceDate: z.string().min(1, "Invoice date is required"),
@@ -123,29 +124,27 @@ export function SimpleInvoiceForm({ onSuccess, onCancel, existingInvoice }: Simp
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="vendorName">Vendor Name *</Label>
-          <Input
-            id="vendorName"
-            {...form.register("vendorName")}
-            className={form.formState.errors.vendorName ? "border-red-500" : ""}
+        <div className="space-y-2 md:col-span-2">
+          <Label>Vendor *</Label>
+          <VendorSelect
+            value={form.watch("vendorNumber")}
+            onSelect={(vendorNumber, vendorName) => {
+              form.setValue("vendorNumber", vendorNumber);
+              form.setValue("vendorName", vendorName);
+            }}
+            placeholder="Search and select vendor..."
+            disabled={isSubmitting}
           />
-          {form.formState.errors.vendorName && (
-            <p className="text-sm text-red-500">{form.formState.errors.vendorName.message}</p>
+          {(form.formState.errors.vendorName || form.formState.errors.vendorNumber) && (
+            <p className="text-sm text-red-500">
+              {form.formState.errors.vendorName?.message || form.formState.errors.vendorNumber?.message}
+            </p>
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="vendorNumber">Vendor Number *</Label>
-          <Input
-            id="vendorNumber"
-            {...form.register("vendorNumber")}
-            className={form.formState.errors.vendorNumber ? "border-red-500" : ""}
-          />
-          {form.formState.errors.vendorNumber && (
-            <p className="text-sm text-red-500">{form.formState.errors.vendorNumber.message}</p>
-          )}
-        </div>
+        {/* Hidden fields for vendor data - populated by VendorSelect */}
+        <input type="hidden" {...form.register("vendorNumber")} />
+        <input type="hidden" {...form.register("vendorName")} />
 
         <div className="space-y-2">
           <Label htmlFor="invoiceNumber">Invoice Number *</Label>
