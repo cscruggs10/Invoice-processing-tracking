@@ -11,12 +11,11 @@ export default function Upload() {
 
   const handleFileUpload = async (files: File[]) => {
     try {
-      // Get Cloudinary config
-      const configResponse = await fetch('/api/cloudinary-config');
-      if (!configResponse.ok) {
-        throw new Error('Failed to get upload configuration');
-      }
-      const config = await configResponse.json();
+      // Hardcode Cloudinary config to bypass broken API
+      const config = {
+        cloudName: 'dcpy2x17s',
+        uploadPreset: 'invoice_uploads'
+      };
       
       for (const file of files) {
         // Create FormData for direct Cloudinary upload
