@@ -17,6 +17,7 @@ import Search from "@/pages/search";
 import ImportVerification from "@/pages/import-verification";
 import ImportFailures from "@/pages/import-failures";
 import Debug from "@/pages/debug";
+import SimpleUpload from "@/pages/simple-upload";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/import-failures" component={ImportFailures} />
       <Route path="/search" component={Search} />
       <Route path="/debug" component={Debug} />
+      <Route path="/simple-upload" component={SimpleUpload} />
       <Route component={NotFound} />
     </Switch>
   );
