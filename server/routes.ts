@@ -5,9 +5,10 @@ import { insertInvoiceSchema, insertUploadedFileSchema, insertAuditLogSchema, in
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { cloudinaryUpload } from "./cloudinary";
 
-// Configure multer for file uploads
-const upload = multer({
+// Configure multer for local file uploads (fallback when Cloudinary is not configured)
+const localUpload = multer({
   dest: 'uploads/',
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -21,6 +22,9 @@ const upload = multer({
     }
   },
 });
+
+// Use Cloudinary if configured, otherwise use local storage
+const upload = process.env.CLOUDINARY_CLOUD_NAME ? cloudinaryUpload : localUpload;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -310,29 +314,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      // For Vercel deployment, we'll store file metadata only
-      // In production, you'd upload to S3, Cloudinary, or similar
-      let filePath = req.file.path;
+      console.log("File uploaded:", req.file);
+
+      // Get the file URL based on storage type
+      let fileUrl = '';
+      let filename = '';
       
-      // If running on Vercel, just store metadata
-      if (process.env.VERCEL) {
-        filePath = `temp_${req.file.filename}`;
+      if (process.env.CLOUDINARY_CLOUD_NAME && (req.file as any).path) {
+        // Cloudinary upload - file.path contains the Cloudinary URL
+        fileUrl = (req.file as any).path;
+        filename = (req.file as any).public_id || req.file.filename;
+      } else if (req.file.path) {
+        // Local storage
+        fileUrl = req.file.path;
+        filename = req.file.filename;
+      } else {
+        // Fallback
+        fileUrl = `temp_${req.file.filename}`;
+        filename = req.file.filename;
       }
 
       // Create uploaded file record in database
       const uploadedFileData = {
-        filename: req.file.filename,
+        filename: filename,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
-        filePath: filePath,
+        filePath: fileUrl, // This now stores the Cloudinary URL
         uploadedBy: 1, // TODO: Get from session
       };
 
       const uploadedFile = await storage.createUploadedFile(uploadedFileData);
       
-      // Clean up temp file if on Vercel
-      if (process.env.VERCEL && req.file.path) {
+      // Clean up temp file if using local storage and on Vercel
+      if (!process.env.CLOUDINARY_CLOUD_NAME && process.env.VERCEL && req.file.path) {
         fs.unlink(req.file.path, (err) => {
           if (err) console.error("Error deleting temp file:", err);
         });
