@@ -74,6 +74,7 @@ const navigationItems: NavigationItem[] = [
     getCount: (stats, invoices) => invoices?.filter((inv: any) => inv.status === "import_failed").length || 0
   },
   { href: "/search", label: "Search Filed Invoices", icon: Search },
+  { href: "/debug", label: "Debug Logs", icon: Brain },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
