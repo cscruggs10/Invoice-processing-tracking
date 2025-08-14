@@ -13,7 +13,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'invoice-tracker',
+    folder: 'Invoice-uploads',
     allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
     transformation: [{ width: 2000, height: 2000, crop: 'limit' }],
     resource_type: 'auto',
