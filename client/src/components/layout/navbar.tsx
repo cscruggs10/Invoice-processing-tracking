@@ -26,8 +26,8 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="hidden md:block">
-            <p className="text-sm text-muted-foreground">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}!</p>
-            <h2 className="text-lg font-semibold">Welcome back to your dashboard</h2>
+            <p className="text-sm text-muted-foreground">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}</p>
+            <h2 className="text-lg font-semibold">Welcome back to Invoice Tracker 🚀</h2>
           </div>
         </div>
         
