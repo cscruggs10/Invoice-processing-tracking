@@ -63,7 +63,14 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = process.env.PORT || 5000;
-  server.listen(port, () => {
-    log(`serving on port ${port}`);
-  });
+  
+  // Only start server if not in Vercel environment
+  if (!process.env.VERCEL) {
+    server.listen(port, () => {
+      log(`serving on port ${port}`);
+    });
+  }
 })();
+
+// Export for Vercel
+export default app;

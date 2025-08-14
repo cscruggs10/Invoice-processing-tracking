@@ -310,17 +310,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
+      // For Vercel deployment, we'll store file metadata only
+      // In production, you'd upload to S3, Cloudinary, or similar
+      let filePath = req.file.path;
+      
+      // If running on Vercel, just store metadata
+      if (process.env.VERCEL) {
+        filePath = `temp_${req.file.filename}`;
+      }
+
       // Create uploaded file record in database
       const uploadedFileData = {
         filename: req.file.filename,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
-        filePath: req.file.path,
+        filePath: filePath,
         uploadedBy: 1, // TODO: Get from session
       };
 
       const uploadedFile = await storage.createUploadedFile(uploadedFileData);
+      
+      // Clean up temp file if on Vercel
+      if (process.env.VERCEL && req.file.path) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error("Error deleting temp file:", err);
+        });
+      }
+      
       res.json(uploadedFile);
     } catch (error) {
       console.error("File upload error:", error);
