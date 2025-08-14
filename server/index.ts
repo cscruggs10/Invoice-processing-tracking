@@ -39,8 +39,14 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  const server = await registerRoutes(app);
+// Initialize the app
+let isInitialized = false;
+let server: any;
+
+async function initializeApp() {
+  if (isInitialized) return;
+  
+  server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -58,19 +64,22 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = process.env.PORT || 5000;
   
-  // Only start server if not in Vercel environment
-  if (!process.env.VERCEL) {
+  isInitialized = true;
+}
+
+// Initialize for local development
+if (!process.env.VERCEL) {
+  initializeApp().then(() => {
+    const port = process.env.PORT || 5000;
     server.listen(port, () => {
       log(`serving on port ${port}`);
     });
-  }
-})();
+  });
+} else {
+  // Initialize for Vercel
+  initializeApp();
+}
 
 // Export for Vercel
 export default app;
