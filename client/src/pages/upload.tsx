@@ -20,8 +20,8 @@ export default function Upload() {
           reader.readAsDataURL(file);
         });
         
-        // Upload file to server using base64
-        const uploadResponse = await fetch('/api/upload-image', {
+        // Upload file to server using base64 (with debug endpoint)
+        const uploadResponse = await fetch('/api/debug-upload', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -33,11 +33,15 @@ export default function Upload() {
           }),
         });
         
+        const responseData = await uploadResponse.json();
+        console.log('Upload response:', responseData);
+        
         if (!uploadResponse.ok) {
-          throw new Error('Upload failed');
+          console.error('Upload failed with logs:', responseData.logs);
+          throw new Error(`Upload failed: ${responseData.message || 'Unknown error'}`);
         }
         
-        const uploadedFile = await uploadResponse.json();
+        const uploadedFile = responseData;
         
         console.log("File uploaded successfully:", uploadedFile);
         

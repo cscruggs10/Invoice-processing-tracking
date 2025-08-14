@@ -16,6 +16,7 @@ import Export from "@/pages/export";
 import Search from "@/pages/search";
 import ImportVerification from "@/pages/import-verification";
 import ImportFailures from "@/pages/import-failures";
+import Debug from "@/pages/debug";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/import-verification" component={ImportVerification} />
       <Route path="/import-failures" component={ImportFailures} />
       <Route path="/search" component={Search} />
+      <Route path="/debug" component={Debug} />
       <Route component={NotFound} />
     </Switch>
   );
