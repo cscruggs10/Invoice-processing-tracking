@@ -18,39 +18,22 @@ export default function Upload() {
       };
       
       for (const file of files) {
-        // Create FormData for direct Cloudinary upload
+        // Create FormData for streaming upload (DealMachine approach)
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('upload_preset', config.uploadPreset);
-        formData.append('folder', 'Invoice-uploads');
         
-        // Upload directly to Cloudinary (bypasses Vercel limits)
-        const uploadResponse = await fetch(
-          `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`,
-          {
-            method: 'POST',
-            body: formData,
-          }
-        );
+        // Upload via our streaming API (works in Vercel serverless)
+        const uploadResponse = await fetch('/api/upload-stream', {
+          method: 'POST',
+          body: formData,
+        });
         
         if (!uploadResponse.ok) {
           throw new Error(`Cloudinary upload failed: ${uploadResponse.statusText}`);
         }
         
-        const result = await uploadResponse.json();
-        console.log('Cloudinary upload successful:', result);
-        
-        // Create our response format
-        const uploadedFile = {
-          id: Date.now(),
-          filename: result.public_id,
-          originalName: file.name,
-          mimeType: file.type,
-          fileSize: result.bytes,
-          filePath: result.secure_url,
-          uploadedBy: 1,
-          uploadedAt: new Date().toISOString(),
-        };
+        const uploadedFile = await uploadResponse.json();
+        console.log('Stream upload successful:', uploadedFile);
         
         console.log("File uploaded successfully:", uploadedFile);
         
