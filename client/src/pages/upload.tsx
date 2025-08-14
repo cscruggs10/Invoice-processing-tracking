@@ -11,37 +11,47 @@ export default function Upload() {
 
   const handleFileUpload = async (files: File[]) => {
     try {
+      // Get Cloudinary config
+      const configResponse = await fetch('/api/cloudinary-config');
+      if (!configResponse.ok) {
+        throw new Error('Failed to get upload configuration');
+      }
+      const config = await configResponse.json();
+      
       for (const file of files) {
-        // Convert file to base64
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        // Create FormData for direct Cloudinary upload
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', config.uploadPreset);
+        formData.append('folder', 'Invoice-uploads');
         
-        // Upload file to server using base64 (with debug endpoint)
-        const uploadResponse = await fetch('/api/debug-upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            image: base64,
-            filename: file.name,
-            mimetype: file.type,
-          }),
-        });
-        
-        const responseData = await uploadResponse.json();
-        console.log('Upload response:', responseData);
+        // Upload directly to Cloudinary (bypasses Vercel limits)
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
         
         if (!uploadResponse.ok) {
-          console.error('Upload failed with logs:', responseData.logs);
-          throw new Error(`Upload failed: ${responseData.message || 'Unknown error'}`);
+          throw new Error(`Cloudinary upload failed: ${uploadResponse.statusText}`);
         }
         
-        const uploadedFile = responseData;
+        const result = await uploadResponse.json();
+        console.log('Cloudinary upload successful:', result);
+        
+        // Create our response format
+        const uploadedFile = {
+          id: Date.now(),
+          filename: result.public_id,
+          originalName: file.name,
+          mimeType: file.type,
+          fileSize: result.bytes,
+          filePath: result.secure_url,
+          uploadedBy: 1,
+          uploadedAt: new Date().toISOString(),
+        };
         
         console.log("File uploaded successfully:", uploadedFile);
         
