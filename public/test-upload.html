@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Upload Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 500px; margin: 0 auto; }
+        input { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
+        .result { padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Ultra Simple Upload Test</h1>
+    <input type="file" id="fileInput" accept="image/*" />
+    <div id="status"></div>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const status = document.getElementById('status');
+            const result = document.getElementById('result');
+            
+            status.innerHTML = '⏳ Uploading to Cloudinary...';
+            result.innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', 'ml_default');
+            formData.append('folder', 'Invoice-uploads');
+
+            try {
+                const response = await fetch('https://api.cloudinary.com/v1_1/dcpy2x17s/image/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    status.innerHTML = '✅ Success!';
+                    result.innerHTML = `
+                        <div class="result success">
+                            <strong>Upload Successful!</strong><br>
+                            File: ${data.public_id}<br>
+                            URL: <a href="${data.secure_url}" target="_blank">${data.secure_url}</a>
+                        </div>
+                    `;
+                } else {
+                    status.innerHTML = '❌ Failed';
+                    result.innerHTML = `
+                        <div class="result error">
+                            <strong>Error:</strong> ${data.error?.message || 'Upload failed'}<br>
+                            Details: ${JSON.stringify(data, null, 2)}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                status.innerHTML = '❌ Failed';
+                result.innerHTML = `
+                    <div class="result error">
+                        <strong>Network Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
