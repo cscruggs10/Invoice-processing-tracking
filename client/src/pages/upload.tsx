@@ -12,14 +12,25 @@ export default function Upload() {
   const handleFileUpload = async (files: File[]) => {
     try {
       for (const file of files) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('userId', '1'); // TODO: Get from auth context
+        // Convert file to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
         
-        // Upload file to server
-        const uploadResponse = await fetch('/api/upload', {
+        // Upload file to server using base64
+        const uploadResponse = await fetch('/api/upload-image', {
           method: 'POST',
-          body: formData,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image: base64,
+            filename: file.name,
+            mimetype: file.type,
+          }),
         });
         
         if (!uploadResponse.ok) {
