@@ -6,7 +6,7 @@ import { SimpleInvoiceForm } from "@/components/forms/simple-invoice-form";
 import { VehicleSelectionForm } from "@/components/forms/vehicle-selection-form";
 import { MultiVehicleEntryForm } from "@/components/forms/multi-vehicle-entry-form";
 import { InvoicePreview } from "@/components/invoice-preview";
-import { ZoomIn, Download, ArrowLeft, FileText, Calendar } from "lucide-react";
+import { ZoomIn, Download, ArrowLeft, FileText, Calendar, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInvoices } from "@/hooks/use-invoices";
 import type { Invoice } from "@/lib/types";
@@ -80,12 +80,16 @@ export default function DataEntry() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 skeleton"></div>
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
+              <Card key={i} className="modern-card animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded skeleton"></div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
@@ -94,17 +98,21 @@ export default function DataEntry() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
         {currentStep !== "queue" && (
-          <Button variant="outline" onClick={currentStep === "vehicle-selection" ? handleBackToQueue : handleBackToVehicleSelection}>
+          <Button 
+            variant="outline" 
+            onClick={currentStep === "vehicle-selection" ? handleBackToQueue : handleBackToVehicleSelection}
+            className="hover-lift"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
         )}
         <div>
-          <h1 className="text-2xl font-bold">Data Entry Queue</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold gradient-text">Data Entry Queue</h1>
+          <p className="text-muted-foreground mt-2">
             {currentStep === "queue" && `${invoices?.length || 0} invoices awaiting data entry`}
             {currentStep === "vehicle-selection" && "Select vehicle type for this invoice"}
             {currentStep === "single" && "Enter invoice data for single vehicle"}
@@ -117,39 +125,71 @@ export default function DataEntry() {
       {currentStep === "queue" && (
         <div className="space-y-4">
           {invoices && invoices.length > 0 ? (
-            invoices.map((invoice) => (
-              <Card key={invoice.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleInvoiceSelect(invoice)}>
-                <CardContent className="p-4">
+            invoices.map((invoice, index) => (
+              <Card 
+                key={invoice.id} 
+                className="modern-card hover-lift cursor-pointer border-0 animate-fadeIn" 
+                onClick={() => handleInvoiceSelect(invoice)}
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <FileText className="h-8 w-8 text-gray-400" />
+                      <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                        <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                      </div>
                       <div>
-                        <h3 className="font-medium">{invoice.invoiceNumber}</h3>
-                        <p className="text-sm text-gray-600">{invoice.description || "No description"}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Calendar className="h-3 w-3 text-gray-400" />
-                          <span className="text-xs text-gray-500">
-                            Uploaded {new Date(invoice.createdAt).toLocaleDateString()}
-                          </span>
+                        <h3 className="font-semibold text-lg">{invoice.invoiceNumber}</h3>
+                        <p className="text-sm text-muted-foreground mb-1">
+                          {invoice.description || "No description available"}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>Uploaded {new Date(invoice.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          {invoice.vendorName !== "Pending Entry" && (
+                            <div className="flex items-center gap-1">
+                              <span>•</span>
+                              <span>{invoice.vendorName}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant="secondary">Pending Entry</Badge>
-                      <Button className="mt-2">
-                        Start Entry
-                      </Button>
+                    <div className="text-right space-y-2">
+                      <Badge 
+                        variant="secondary" 
+                        className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                      >
+                        Pending Entry
+                      </Badge>
+                      <div>
+                        <Button className="btn-modern gradient-primary text-white">
+                          Start Entry
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ))
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No invoices in queue</h3>
-                <p className="text-gray-600">Upload invoices to begin data entry</p>
+            <Card className="modern-card border-0">
+              <CardContent className="p-12 text-center">
+                <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-full w-fit mx-auto mb-6">
+                  <FileText className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  No invoices in queue
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  Upload invoices to begin data entry process
+                </p>
+                <Button variant="outline" className="hover-lift">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Go to Upload
+                </Button>
               </CardContent>
             </Card>
           )}

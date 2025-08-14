@@ -1,10 +1,13 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import { 
   users, invoices, uploadedFiles, auditLog, csvExports, billingLines, vendors,
-  wholesaleInventory, retailInventory, soldInventory, currentAccount,
+  wholesaleInventory, retailInventory, soldInventory, currentAccount, exportBatches,
   type User, type InsertUser, type Invoice, type InsertInvoice, 
   type UploadedFile, type InsertUploadedFile, type AuditLog, type InsertAuditLog,
   type BillingLine, type InsertBillingLine, type Vendor, type InsertVendor,
-  type CsvExport, type InvoiceStatus, type VinLookupResult
+  type CsvExport, type ExportBatch, type InsertExportBatch, type InvoiceStatus, type VinLookupResult
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -64,6 +67,12 @@ export interface IStorage {
   createCsvExport(exportData: Omit<CsvExport, 'id' | 'createdAt'>): Promise<CsvExport>;
   getCsvExports(): Promise<CsvExport[]>;
   
+  // Export batches
+  createExportBatch(batchData: InsertExportBatch): Promise<ExportBatch>;
+  getExportBatch(id: number): Promise<ExportBatch | undefined>;
+  getExportBatches(filters?: { status?: string }): Promise<ExportBatch[]>;
+  updateExportBatch(id: number, updates: Partial<ExportBatch>): Promise<ExportBatch>;
+  
   // Dashboard stats
   getDashboardStats(): Promise<{
     totalPending: number;
@@ -81,6 +90,7 @@ export class MemStorage implements IStorage {
   private billingLines: Map<number, BillingLine> = new Map();
   private auditLogs: Map<number, AuditLog> = new Map();
   private csvExports: Map<number, CsvExport> = new Map();
+  private exportBatches: Map<number, ExportBatch> = new Map();
   private wholesaleVins: Map<string, { lastUpdated: Date }> = new Map();
   private retailVins: Map<string, { lastUpdated: Date }> = new Map();
   private soldVins: Map<string, { soldDate: Date }> = new Map();
@@ -93,6 +103,7 @@ export class MemStorage implements IStorage {
   private currentBillingLineId = 1;
   private currentAuditId = 1;
   private currentExportId = 1;
+  private currentBatchId = 1;
 
   constructor() {
     // Initialize with clean slate - no sample invoices
@@ -503,6 +514,42 @@ export class MemStorage implements IStorage {
       needReview: allInvoices.filter(inv => inv.status === "admin_review").length,
     };
   }
+
+  // Export batch methods
+  async createExportBatch(batchData: InsertExportBatch): Promise<ExportBatch> {
+    const batch: ExportBatch = {
+      ...batchData,
+      id: this.currentBatchId++,
+      createdAt: new Date(),
+    };
+    this.exportBatches.set(batch.id, batch);
+    return batch;
+  }
+
+  async getExportBatch(id: number): Promise<ExportBatch | undefined> {
+    return this.exportBatches.get(id);
+  }
+
+  async getExportBatches(filters?: { status?: string }): Promise<ExportBatch[]> {
+    let batches = Array.from(this.exportBatches.values());
+    
+    if (filters?.status) {
+      batches = batches.filter(batch => batch.status === filters.status);
+    }
+    
+    return batches.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateExportBatch(id: number, updates: Partial<ExportBatch>): Promise<ExportBatch> {
+    const batch = this.exportBatches.get(id);
+    if (!batch) {
+      throw new Error(`Export batch with ID ${id} not found`);
+    }
+    
+    const updatedBatch = { ...batch, ...updates };
+    this.exportBatches.set(id, updatedBatch);
+    return updatedBatch;
+  }
 }
 
 // Database storage implementation using Drizzle + Neon
@@ -652,8 +699,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateInvoice(id: number, updates: Partial<Invoice>): Promise<Invoice> {
+    // Create a clean updates object with only the fields we want to update
+    const cleanUpdates: any = {};
+    
+    // Copy over non-date fields directly
+    if (updates.status !== undefined) cleanUpdates.status = updates.status;
+    if (updates.vendorName !== undefined) cleanUpdates.vendorName = updates.vendorName;
+    if (updates.vendorNumber !== undefined) cleanUpdates.vendorNumber = updates.vendorNumber;
+    if (updates.invoiceNumber !== undefined) cleanUpdates.invoiceNumber = updates.invoiceNumber;
+    if (updates.vin !== undefined) cleanUpdates.vin = updates.vin;
+    if (updates.invoiceType !== undefined) cleanUpdates.invoiceType = updates.invoiceType;
+    if (updates.description !== undefined) cleanUpdates.description = updates.description;
+    if (updates.glCode !== undefined) cleanUpdates.glCode = updates.glCode;
+    if (updates.vendorId !== undefined) cleanUpdates.vendorId = updates.vendorId;
+    if (updates.uploadedBy !== undefined) cleanUpdates.uploadedBy = updates.uploadedBy;
+    if (updates.enteredBy !== undefined) cleanUpdates.enteredBy = updates.enteredBy;
+    if (updates.approvedBy !== undefined) cleanUpdates.approvedBy = updates.approvedBy;
+    if (updates.finalizedBy !== undefined) cleanUpdates.finalizedBy = updates.finalizedBy;
+    if (updates.vinLookupResult !== undefined) cleanUpdates.vinLookupResult = updates.vinLookupResult;
+    if (updates.exportBatchId !== undefined) cleanUpdates.exportBatchId = updates.exportBatchId;
+    if (updates.importFailureReason !== undefined) cleanUpdates.importFailureReason = updates.importFailureReason;
+    if (updates.importNotes !== undefined) cleanUpdates.importNotes = updates.importNotes;
+    
+    // Handle amount field - ensure it's a string
+    if (updates.invoiceAmount !== undefined) {
+      cleanUpdates.invoiceAmount = updates.invoiceAmount.toString();
+    }
+    
+    // Handle date fields - ensure they're Date objects
+    if (updates.invoiceDate !== undefined) {
+      cleanUpdates.invoiceDate = typeof updates.invoiceDate === 'string' ? new Date(updates.invoiceDate) : updates.invoiceDate;
+    }
+    if (updates.dueDate !== undefined) {
+      cleanUpdates.dueDate = typeof updates.dueDate === 'string' ? new Date(updates.dueDate) : updates.dueDate;
+    }
+    if (updates.filedAt !== undefined) {
+      cleanUpdates.filedAt = typeof updates.filedAt === 'string' ? new Date(updates.filedAt) : updates.filedAt;
+    }
+    
+    // Always set updatedAt to current time
+    cleanUpdates.updatedAt = new Date();
+    
     const result = await this.db.update(invoices)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(cleanUpdates)
       .where(eq(invoices.id, id))
       .returning();
     
@@ -835,6 +923,42 @@ export class DatabaseStorage implements IStorage {
       ),
       needReview: allInvoices.filter(inv => inv.status === "admin_review").length,
     };
+  }
+
+  // Export batch methods
+  async createExportBatch(batchData: InsertExportBatch): Promise<ExportBatch> {
+    const result = await this.db.insert(exportBatches).values(batchData).returning();
+    return result[0];
+  }
+
+  async getExportBatch(id: number): Promise<ExportBatch | undefined> {
+    const result = await this.db.select().from(exportBatches)
+      .where(eq(exportBatches.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getExportBatches(filters?: { status?: string }): Promise<ExportBatch[]> {
+    let query = this.db.select().from(exportBatches);
+    
+    if (filters?.status) {
+      query = query.where(eq(exportBatches.status, filters.status));
+    }
+    
+    return query.orderBy(desc(exportBatches.createdAt));
+  }
+
+  async updateExportBatch(id: number, updates: Partial<ExportBatch>): Promise<ExportBatch> {
+    const result = await this.db.update(exportBatches)
+      .set(updates)
+      .where(eq(exportBatches.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`Export batch with ID ${id} not found`);
+    }
+    
+    return result[0];
   }
 }
 

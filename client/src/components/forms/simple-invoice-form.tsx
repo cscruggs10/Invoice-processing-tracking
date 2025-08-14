@@ -43,7 +43,7 @@ export function SimpleInvoiceForm({ onSuccess, onCancel, existingInvoice }: Simp
       vendorNumber: "",
       invoiceNumber: "",
       invoiceDate: "",
-      invoiceAmount: 0,
+      invoiceAmount: "" as any,
       vin: "",
       invoiceType: "",
       description: "",

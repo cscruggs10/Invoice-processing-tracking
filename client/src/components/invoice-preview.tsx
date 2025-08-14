@@ -54,7 +54,7 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
 
   const handleDownload = (file: UploadedFile) => {
     const link = document.createElement('a');
-    link.href = `/api/files/${file.id}`;
+    link.href = `/api/files/${file.id}?download=true`;
     link.download = file.originalName;
     document.body.appendChild(link);
     link.click();

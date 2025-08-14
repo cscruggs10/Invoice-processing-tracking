@@ -1,0 +1,12 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[dotenv@17.2.1] injecting env (3) from .env -- tip: 📡 auto-backup env with Radar: https://dotenvx.com/radar
+[dotenv@17.2.1] injecting env (0) from .env -- tip: 📡 observe env with Radar: https://dotenvx.com/radar
+8:17:58 AM [express] serving on port 3000
+Browserslist: browsers data (caniuse-lite) is 10 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+8:17:59 AM [express] GET /api/dashboard/stats 500 in 36ms :: {"message":"Failed to fetch dashboard s…
+8:17:59 AM [express] GET /api/invoices 500 in 33ms :: {"message":"Failed to fetch invoices"}

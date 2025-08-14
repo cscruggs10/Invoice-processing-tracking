@@ -31,6 +31,21 @@ export const vendors = pgTable("vendors", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const exportBatches = pgTable("export_batches", {
+  id: serial("id").primaryKey(),
+  filename: text("filename").notNull(),
+  exportDate: timestamp("export_date").notNull(),
+  totalInvoices: integer("total_invoices").notNull(),
+  pendingVerification: integer("pending_verification").notNull().default(0),
+  verifiedCount: integer("verified_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  status: text("status").notNull().default("awaiting_verification"), // awaiting_verification, completed, partially_failed
+  verificationDocumentPath: text("verification_document_path"), // Store uploaded result file path
+  exportedBy: integer("exported_by").references(() => users.id).notNull(),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   invoiceNumber: text("invoice_number").notNull(),
@@ -44,12 +59,17 @@ export const invoices = pgTable("invoices", {
   invoiceType: text("invoice_type").notNull(),
   description: text("description"),
   glCode: text("gl_code"),
-  status: text("status").notNull().default("pending_entry"), // pending_entry, pending_review, admin_review, approved, finalized, paid
+  status: text("status").notNull().default("pending_entry"), // pending_entry, pending_review, admin_review, approved, exported, import_failed, filed, finalized, paid
   uploadedBy: integer("uploaded_by").references(() => users.id).notNull(),
   enteredBy: integer("entered_by").references(() => users.id),
   approvedBy: integer("approved_by").references(() => users.id),
   finalizedBy: integer("finalized_by").references(() => users.id),
   vinLookupResult: json("vin_lookup_result"), // stores which database VIN was found in
+  // New import verification fields
+  exportBatchId: integer("export_batch_id").references(() => exportBatches.id),
+  importFailureReason: text("import_failure_reason"),
+  importNotes: text("import_notes"),
+  filedAt: timestamp("filed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -159,6 +179,11 @@ export const insertVendorSchema = createInsertSchema(vendors).omit({
   updatedAt: true,
 });
 
+export const insertExportBatchSchema = createInsertSchema(exportBatches).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -173,8 +198,10 @@ export type InsertBillingLine = z.infer<typeof insertBillingLineSchema>;
 export type Vendor = typeof vendors.$inferSelect;
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type CsvExport = typeof csvExports.$inferSelect;
+export type ExportBatch = typeof exportBatches.$inferSelect;
+export type InsertExportBatch = z.infer<typeof insertExportBatchSchema>;
 
-export type InvoiceStatus = "pending_entry" | "pending_review" | "admin_review" | "approved" | "finalized" | "paid";
+export type InvoiceStatus = "pending_entry" | "pending_review" | "admin_review" | "approved" | "exported" | "import_failed" | "filed" | "finalized" | "paid";
 export type VinLookupResult = {
   found: boolean;
   database?: "wholesale_inventory" | "retail_inventory" | "sold" | "current_account";

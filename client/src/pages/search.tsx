@@ -1,229 +1,219 @@
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Search as SearchIcon, FileText, Calendar, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, RotateCcw, Download, Eye, History } from "lucide-react";
-import { useInvoices } from "@/hooks/use-invoices";
-import type { InvoiceStatus } from "@/lib/types";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 
-export default function SearchPage() {
-  const [filters, setFilters] = useState({
-    vendorName: "",
-    invoiceNumber: "", 
-    dateFrom: "",
-    dateTo: "",
-    status: "" as InvoiceStatus | "",
-  });
+interface SearchResult {
+  id: number;
+  invoiceNumber: string;
+  vendorName: string;
+  vendorNumber: string;
+  invoiceDate: string;
+  invoiceAmount: string;
+  vin: string;
+  invoiceType: string;
+  description?: string;
+  filedAt: string;
+}
 
-  const { data: invoices, isLoading } = useInvoices(
-    Object.keys(filters).some(key => filters[key as keyof typeof filters]) 
-      ? {
-          vendorName: filters.vendorName || undefined,
-          invoiceNumber: filters.invoiceNumber || undefined,
-          startDate: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
-          endDate: filters.dateTo ? new Date(filters.dateTo) : undefined,
-          status: filters.status ? [filters.status] : undefined,
-        }
-      : undefined
-  );
+interface SearchResponse {
+  results: SearchResult[];
+  total: number;
+  message: string;
+}
 
-  const handleFilterChange = (key: keyof typeof filters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
+export default function Search() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [message, setMessage] = useState("");
+  const { toast } = useToast();
 
-  const handleClearFilters = () => {
-    setFilters({
-      vendorName: "",
-      invoiceNumber: "",
-      dateFrom: "",
-      dateTo: "",
-      status: "",
-    });
-  };
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!searchTerm.trim()) {
+      toast({
+        title: "Search term required",
+        description: "Please enter a search term",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "finalized":
-        return "default";
-      case "paid":
-        return "secondary";
-      case "approved":
-        return "outline";
-      default:
-        return "outline";
+    setIsLoading(true);
+    setHasSearched(false);
+
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(searchTerm)}`);
+      const data: SearchResponse = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Search failed");
+      }
+
+      setResults(data.results);
+      setMessage(data.message);
+      setHasSearched(true);
+    } catch (error) {
+      console.error("Search error:", error);
+      toast({
+        title: "Search failed",
+        description: error instanceof Error ? error.message : "An error occurred while searching",
+        variant: "destructive",
+      });
+      setResults([]);
+      setMessage("Search failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const formatStatus = (status: string) => {
-    return status.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatAmount = (amount: string) => {
+    return `$${parseFloat(amount).toFixed(2)}`;
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Search & Archive</h1>
-        <p className="text-gray-600">Search, filter, and manage all invoices</p>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Search Filed Invoices</h1>
+        <p className="text-muted-foreground">
+          Search through completed invoices by vendor name, invoice number, VIN, or description
+        </p>
       </div>
 
-      {/* Search Panel */}
       <Card>
-        <CardContent className="pt-6">
-          <form className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="vendorName">Vendor Name</Label>
-              <Input
-                id="vendorName"
-                placeholder="Search vendor"
-                value={filters.vendorName}
-                onChange={(e) => handleFilterChange("vendorName", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="invoiceNumber">Invoice Number</Label>
-              <Input
-                id="invoiceNumber"
-                placeholder="Invoice #"
-                value={filters.invoiceNumber}
-                onChange={(e) => handleFilterChange("invoiceNumber", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dateFrom">Date From</Label>
-              <Input
-                id="dateFrom"
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dateTo">Date To</Label>
-              <Input
-                id="dateTo"
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange("dateTo", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={filters.status}
-                onValueChange={(value) => handleFilterChange("status", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
-                  <SelectItem value="pending_entry">Pending Entry</SelectItem>
-                  <SelectItem value="pending_review">Pending Review</SelectItem>
-                  <SelectItem value="admin_review">Admin Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="finalized">Finalized</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="col-span-full flex gap-2">
-              <Button type="button">
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </Button>
-              <Button type="button" variant="outline" onClick={handleClearFilters}>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Clear
-              </Button>
-            </div>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SearchIcon className="h-5 w-5" />
+            Invoice Search
+          </CardTitle>
+          <CardDescription>
+            Search filed invoices by vendor name, invoice number, VIN, or description
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <Input
+              placeholder="Enter search term (e.g., vendor name, invoice number, VIN)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Searching..." : "Search"}
+            </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* Search Results */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Search Results</CardTitle>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-1" />
-              Export Results
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-gray-600 mt-2">Searching...</p>
+      {hasSearched && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Search Results
+              <Badge variant="secondary">{results.length} results</Badge>
+            </CardTitle>
+            <CardDescription>{message}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {results.length > 0 ? (
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead>VIN</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Invoice Date</TableHead>
+                      <TableHead>Filed Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {results.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            {invoice.invoiceNumber}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{invoice.vendorName}</div>
+                            <div className="text-sm text-muted-foreground">#{invoice.vendorNumber}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-sm bg-muted px-2 py-1 rounded">
+                            {invoice.vin}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{invoice.invoiceType}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-4 w-4 text-green-600" />
+                            <span className="font-medium">{formatAmount(invoice.invoiceAmount)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {formatDate(invoice.invoiceDate)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 text-blue-600" />
+                            {formatDate(invoice.filedAt)}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <SearchIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No invoices found matching your search term.</p>
+                <p className="text-sm mt-1">Try searching for a vendor name, invoice number, or VIN.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!hasSearched && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              <SearchIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Enter a search term above to find filed invoices.</p>
+              <div className="mt-4 text-sm space-y-1">
+                <p><strong>Search tips:</strong></p>
+                <p>• Search by vendor name (e.g., "ABC Corp")</p>
+                <p>• Search by invoice number (e.g., "INV-001")</p>
+                <p>• Search by VIN (e.g., "12345678")</p>
+                <p>• Search by description keywords</p>
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-3 font-medium">Invoice #</th>
-                    <th className="pb-3 font-medium">Vendor</th>
-                    <th className="pb-3 font-medium">Date</th>
-                    <th className="pb-3 font-medium">Amount</th>
-                    <th className="pb-3 font-medium">VIN</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium">GL Code</th>
-                    <th className="pb-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices?.map((invoice) => (
-                    <tr key={invoice.id} className="border-b">
-                      <td className="py-3">{invoice.invoiceNumber}</td>
-                      <td className="py-3">{invoice.vendorName}</td>
-                      <td className="py-3">
-                        {new Date(invoice.invoiceDate).toLocaleDateString()}
-                      </td>
-                      <td className="py-3">${invoice.invoiceAmount}</td>
-                      <td className="py-3">{invoice.vin}</td>
-                      <td className="py-3">
-                        <Badge variant={getStatusBadgeVariant(invoice.status)}>
-                          {formatStatus(invoice.status)}
-                        </Badge>
-                      </td>
-                      <td className="py-3">{invoice.glCode || "—"}</td>
-                      <td className="py-3">
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <History className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              {(!invoices || invoices.length === 0) && (
-                <div className="text-center py-8 text-gray-500">
-                  {Object.values(filters).some(f => f) 
-                    ? "No invoices found matching the search criteria"
-                    : "Enter search criteria to find invoices"
-                  }
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

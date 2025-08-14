@@ -255,12 +255,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const updates = req.body;
       
+      // Convert date strings to Date objects for Drizzle
+      const processedUpdates = { ...updates };
+      if (processedUpdates.invoiceDate && typeof processedUpdates.invoiceDate === 'string') {
+        processedUpdates.invoiceDate = new Date(processedUpdates.invoiceDate);
+      }
+      if (processedUpdates.dueDate && typeof processedUpdates.dueDate === 'string') {
+        processedUpdates.dueDate = new Date(processedUpdates.dueDate);
+      }
+      if (processedUpdates.invoiceAmount !== undefined) {
+        processedUpdates.invoiceAmount = processedUpdates.invoiceAmount.toString();
+      }
+      
       const oldInvoice = await storage.getInvoice(id);
       if (!oldInvoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
       
-      const updatedInvoice = await storage.updateInvoice(id, updates);
+      const updatedInvoice = await storage.updateInvoice(id, processedUpdates);
       
       // Create audit log
       await storage.createAuditLog({
@@ -273,7 +285,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updatedInvoice);
     } catch (error) {
-      res.status(400).json({ message: "Failed to update invoice" });
+      console.error("Error updating invoice:", error);
+      res.status(400).json({ message: "Failed to update invoice", error: error.message });
     }
   });
 
@@ -288,28 +301,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // File upload
-  app.post("/api/upload", upload.single('file'), async (req, res) => {
+  // File upload endpoint
+  app.post("/api/upload", upload.single("file"), async (req, res) => {
     try {
+      console.log("Upload endpoint called");
+      
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
-      
-      const fileData = {
+
+      // Create uploaded file record in database
+      const uploadedFileData = {
         filename: req.file.filename,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
         filePath: req.file.path,
-        uploadedBy: parseInt(req.body.userId),
-        invoiceId: req.body.invoiceId ? parseInt(req.body.invoiceId) : null,
+        uploadedBy: 1, // TODO: Get from session
       };
-      
-      const uploadedFile = await storage.createUploadedFile(fileData);
+
+      const uploadedFile = await storage.createUploadedFile(uploadedFileData);
       res.json(uploadedFile);
     } catch (error) {
       console.error("File upload error:", error);
-      res.status(500).json({ message: "File upload failed" });
+      res.status(500).json({ message: "File upload failed", error: error.message });
     }
   });
 
@@ -347,6 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/files/:id", async (req, res) => {
     try {
       const fileId = parseInt(req.params.id);
+      const { download } = req.query; // Check if download is explicitly requested
       const file = await storage.getUploadedFile(fileId);
       
       if (!file) {
@@ -355,6 +371,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!fs.existsSync(file.filePath)) {
         return res.status(404).json({ message: "File not found on disk" });
+      }
+      
+      // Set proper headers for inline viewing or download
+      res.setHeader('Content-Type', file.mimeType);
+      
+      if (download === 'true') {
+        // Force download with original filename
+        res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+      } else {
+        // Display inline in browser (for PDFs, images, etc.)
+        res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
+        
+        // Add cache headers for better performance
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
       }
       
       res.sendFile(path.resolve(file.filePath));
@@ -404,7 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // CSV Export
+  // CSV Export with Batch Tracking
   app.post("/api/export/csv", async (req, res) => {
     try {
       const { userId } = req.body;
@@ -416,20 +446,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No approved invoices to export" });
       }
       
-      // Generate CSV content
+      // Create export batch record
+      const today = new Date().toISOString().split('T')[0];
+      const filename = `daily_upload_${today}.csv`;
+      
+      const exportBatch = await storage.createExportBatch({
+        filename,
+        exportDate: new Date(), 
+        totalInvoices: invoices.length,
+        pendingVerification: invoices.length,
+        exportedBy: userId,
+        status: "awaiting_verification"
+      });
+      
+      // Update invoices to 'exported' status and link to batch
+      for (const invoice of invoices) {
+        await storage.updateInvoice(invoice.id, {
+          status: "exported",
+          exportBatchId: exportBatch.id
+        });
+      }
+      
+      // Generate CSV content with leading zero preservation
       const csvHeader = "Vendor Name,Vendor #,Invoice #,Invoice Date,Invoice Amount,Due Date,G/L#,Invoice Type,Description\n";
       const csvRows = invoices.map(inv => {
         const invoiceDate = inv.invoiceDate.toISOString().split('T')[0];
         const dueDate = inv.dueDate.toISOString().split('T')[0];
-        return `"${inv.vendorName}","${inv.vendorNumber}","${inv.invoiceNumber}","${invoiceDate}","${inv.invoiceAmount}","${dueDate}","${inv.glCode || ''}","${inv.invoiceType}","${inv.description || ''}"`;
+        
+        // Helper function to preserve leading zeros for Excel
+        const preserveLeadingZeros = (value: string) => {
+          if (!value) return '""';
+          // Check if the value starts with 0 and contains digits (leading zero pattern)
+          if (value.startsWith('0') && /^\d+$/.test(value)) {
+            return `"=""${value}"""`;  // Excel formula approach: ="00110104250"
+          }
+          return `"${value}"`;
+        };
+        
+        return [
+          `"${inv.vendorName}"`,
+          preserveLeadingZeros(inv.vendorNumber),
+          preserveLeadingZeros(inv.invoiceNumber), 
+          `"${invoiceDate}"`,
+          `"${inv.invoiceAmount}"`,
+          `"${dueDate}"`,
+          preserveLeadingZeros(inv.glCode || ''),
+          `"${inv.invoiceType}"`,
+          `"${inv.description || ''}"`
+        ].join(',');
       }).join('\n');
       
-      const csvContent = csvHeader + csvRows;
+      // Add UTF-8 BOM for proper Excel handling
+      const BOM = '\uFEFF';
+      const csvContent = BOM + csvHeader + csvRows;
       
-      // Create export record
-      const today = new Date().toISOString().split('T')[0];
-      const filename = `daily_upload_${today}.csv`;
-      
+      // Create legacy CSV export record for history
       await storage.createCsvExport({
         filename,
         exportDate: new Date(),
@@ -437,12 +508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exportedBy: userId,
       });
       
-      // Mark invoices as finalized
-      for (const invoice of invoices) {
-        await storage.updateInvoiceStatus(invoice.id, "finalized", userId);
-      }
-      
-      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(csvContent);
     } catch (error) {
@@ -460,6 +526,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch export history" });
     }
   });
+
+  // Export Batch Management
+  app.get("/api/export-batches", async (req, res) => {
+    try {
+      const { status } = req.query;
+      const batches = await storage.getExportBatches({ 
+        status: status as string 
+      });
+      res.json(batches);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch export batches" });
+    }
+  });
+
+  app.get("/api/export-batches/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const batch = await storage.getExportBatch(id);
+      if (!batch) {
+        return res.status(404).json({ message: "Export batch not found" });
+      }
+      res.json(batch);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch export batch" });
+    }
+  });
+
+  app.patch("/api/export-batches/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const batch = await storage.updateExportBatch(id, updates);
+      res.json(batch);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update export batch" });
+    }
+  });
+
+  // Verify Export Batch (Bulk Success)
+  app.post("/api/export-batches/:id/verify-success", async (req, res) => {
+    try {
+      const batchId = parseInt(req.params.id);
+      const { userId } = req.body;
+      
+      const batch = await storage.getExportBatch(batchId);
+      if (!batch) {
+        return res.status(404).json({ message: "Export batch not found" });
+      }
+      
+      // Get all invoices in this batch
+      const allInvoices = await storage.getInvoices({ status: ["exported"] });
+      const batchInvoices = allInvoices.filter(inv => inv.exportBatchId === batchId);
+      
+      // Update all invoices to 'filed' status
+      for (const invoice of batchInvoices) {
+        await storage.updateInvoice(invoice.id, {
+          status: "filed",
+          filedAt: new Date()
+        });
+      }
+      
+      // Update batch status
+      await storage.updateExportBatch(batchId, {
+        status: "completed",
+        verifiedCount: batch.totalInvoices,
+        pendingVerification: 0,
+        verifiedAt: new Date()
+      });
+      
+      res.json({ success: true, verifiedCount: batchInvoices.length });
+    } catch (error) {
+      console.error("Batch verification error:", error);
+      res.status(500).json({ message: "Failed to verify export batch" });
+    }
+  });
+
+  // Mark Individual Invoice as Failed
+  app.post("/api/invoices/:id/mark-import-failed", async (req, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      const { failureReason, userId } = req.body;
+      
+      const invoice = await storage.updateInvoice(invoiceId, {
+        status: "import_failed",
+        importFailureReason: failureReason
+      });
+      
+      // Update batch counts if invoice has a batch
+      if (invoice.exportBatchId) {
+        const batch = await storage.getExportBatch(invoice.exportBatchId);
+        if (batch) {
+          await storage.updateExportBatch(invoice.exportBatchId, {
+            failedCount: batch.failedCount + 1,
+            pendingVerification: batch.pendingVerification - 1,
+            status: batch.pendingVerification - 1 === 0 ? "completed" : "partially_failed"
+          });
+        }
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark invoice as failed" });
+    }
+  });
+
+  // Return Failed Invoice to Approved Status
+  app.post("/api/invoices/:id/return-to-approved", async (req, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      const { correctionNotes, userId } = req.body;
+      
+      const invoice = await storage.updateInvoice(invoiceId, {
+        status: "approved",
+        importFailureReason: null,
+        importNotes: correctionNotes,
+        exportBatchId: null // Remove from previous batch
+      });
+      
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to return invoice to approved status" });
+    }
+  });
+
+  // Get Failed Invoices - fixed version
+  app.get("/api/invoices/import-failed", async (req, res) => {
+    try {
+      const failedInvoices = await storage.getInvoices({ 
+        status: ["import_failed"] 
+      });
+      res.json(failedInvoices);
+    } catch (error) {
+      console.error("Failed invoices error:", error);
+      // Return empty array instead of error to prevent cascading failures
+      res.json([]);
+    }
+  });
+
+  // Simple search endpoint for filed invoices
+  app.get("/api/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      const searchTerm = q as string;
+      
+      if (!searchTerm || searchTerm.trim().length === 0) {
+        return res.json({ results: [], message: "Please enter a search term", total: 0 });
+      }
+
+      // Get all filed invoices
+      const filedInvoices = await storage.getInvoices({ status: ["filed"] });
+      
+      // Simple text search across multiple fields
+      const searchLower = searchTerm.toLowerCase().trim();
+      const results = filedInvoices.filter(invoice => 
+        invoice.vendorName?.toLowerCase().includes(searchLower) ||
+        invoice.invoiceNumber?.toLowerCase().includes(searchLower) ||
+        invoice.description?.toLowerCase().includes(searchLower) ||
+        invoice.vin?.toLowerCase().includes(searchLower) ||
+        invoice.vendorNumber?.toLowerCase().includes(searchLower)
+      );
+
+      res.json({
+        results,
+        total: results.length,
+        message: results.length > 0 
+          ? `Found ${results.length} invoice${results.length === 1 ? '' : 's'} matching "${searchTerm}"`
+          : `No invoices found matching "${searchTerm}"`
+      });
+    } catch (error) {
+      console.error("Search error:", error);
+      res.status(500).json({ message: "Search failed", results: [], total: 0 });
+    }
+  });
+
 
   // Audit logs
   app.get("/api/invoices/:id/audit", async (req, res) => {

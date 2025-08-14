@@ -1,0 +1,200 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[dotenv@17.2.1] injecting env (3) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.1] injecting env (0) from .env -- tip: 📡 version env with Radar: https://dotenvx.com/radar
+8:58:15 AM [express] serving on port 3000
+Browserslist: browsers data (caniuse-lite) is 10 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+8:59:11 AM [express] GET /api/dashboard/stats 304 in 717ms :: {"totalPending":1,"readyToExport":1,"t…
+8:59:11 AM [express] GET /api/invoices 304 in 718ms :: [{"id":8,"invoiceNumber":"UPLOAD-175437113955…
+9:34:00 AM [express] GET /api/dashboard/stats 304 in 112ms :: {"totalPending":1,"readyToExport":1,"t…
+9:34:00 AM [express] GET /api/invoices 304 in 115ms :: [{"id":8,"invoiceNumber":"UPLOAD-175437113955…
+9:34:56 AM [express] GET /api/invoices 304 in 71ms :: [{"id":8,"invoiceNumber":"UPLOAD-1754371139559…
+9:34:56 AM [express] GET /api/dashboard/stats 304 in 77ms :: {"totalPending":1,"readyToExport":1,"to…
+9:35:54 AM [express] GET /api/invoices 200 in 71ms :: [{"id":8,"invoiceNumber":"UPLOAD-1754371139559…
+9:35:54 AM [express] GET /api/dashboard/stats 304 in 75ms :: {"totalPending":1,"readyToExport":1,"to…
+Upload endpoint called
+9:37:28 AM [express] POST /api/upload 200 in 188ms :: {"id":11,"filename":"3c095912572bf5f1e4c549156…
+Creating invoice with request body: {
+  invoiceNumber: 'UPLOAD-1754404648545',
+  vendorName: 'Pending Entry',
+  vendorNumber: 'PENDING',
+  invoiceDate: '2025-08-05',
+  invoiceAmount: '0.00',
+  dueDate: '2025-09-04',
+  vin: 'PENDING',
+  invoiceType: 'Parts',
+  description: 'Uploaded file: IMG_8227.jpg',
+  uploadedBy: 1,
+  status: 'pending_entry'
+}
+Parsed invoice data: {
+  invoiceNumber: 'UPLOAD-1754404648545',
+  vendorName: 'Pending Entry',
+  vendorNumber: 'PENDING',
+  invoiceDate: 2025-08-05T00:00:00.000Z,
+  invoiceAmount: '0.00',
+  dueDate: 2025-09-04T00:00:00.000Z,
+  vin: 'PENDING',
+  invoiceType: 'Parts',
+  description: 'Uploaded file: IMG_8227.jpg',
+  status: 'pending_entry',
+  uploadedBy: 1
+}
+Status from frontend: pending_entry
+Final status to use: pending_entry
+Override status for uploaded invoice: pending_entry
+9:37:28 AM [express] POST /api/invoices 200 in 303ms :: {"id":9,"invoiceNumber":"UPLOAD-175440464854…
+9:37:29 AM [express] PATCH /api/files/11/invoice 200 in 284ms :: {"id":11,"filename":"3c095912572bf5…
+9:41:58 AM [express] GET /api/invoices 200 in 79ms :: [{"id":9,"invoiceNumber":"UPLOAD-1754404648545…
+9:42:01 AM [express] GET /api/invoices/9/files 200 in 160ms :: [{"id":11,"filename":"3c095912572bf5f…
+9:42:02 AM [express] GET /api/files/11 200 in 158ms
+9:42:25 AM [express] GET /api/invoices/9/files 304 in 147ms :: [{"id":11,"filename":"3c095912572bf5f…
+9:42:26 AM [express] GET /api/vendors 304 in 1046ms :: [{"id":1,"vendorNumber":"1-800-Radiator","ven…
+9:42:31 AM [express] GET /api/vendors 304 in 216ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:42:31 AM [express] GET /api/vendors 304 in 356ms :: [{"id":1,"vendorNumber":"1-800-Radiator","vend…
+9:42:31 AM [express] GET /api/vendors 304 in 153ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:42:32 AM [express] GET /api/vendors 304 in 738ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:42:33 AM [express] GET /api/vendors 304 in 218ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:42:33 AM [express] GET /api/vendors 304 in 143ms :: [{"id":450,"vendorNumber":"Autozone","vendorNa…
+9:42:33 AM [express] GET /api/vendors 304 in 151ms :: [{"id":450,"vendorNumber":"Autozone","vendorNa…
+9:42:34 AM [express] GET /api/vendors 304 in 144ms :: [{"id":450,"vendorNumber":"Autozone","vendorNa…
+9:43:43 AM [express] PATCH /api/invoices/9 200 in 443ms :: {"id":9,"invoiceNumber":"00110104250","ve…
+9:43:43 AM [express] GET /api/invoices 200 in 77ms :: [{"id":9,"invoiceNumber":"00110104250","vendor…
+9:43:46 AM [express] GET /api/invoices 200 in 148ms :: [{"id":9,"invoiceNumber":"00110104250","vendo…
+9:43:57 AM [express] GET /api/invoices/9/files 304 in 145ms :: [{"id":11,"filename":"3c095912572bf5f…
+9:44:28 AM [express] PATCH /api/invoices/9/status 200 in 434ms :: {"id":9,"invoiceNumber":"001101042…
+9:44:28 AM [express] GET /api/invoices 200 in 88ms :: [{"id":9,"invoiceNumber":"00110104250","vendor…
+9:44:28 AM [express] GET /api/dashboard/stats 200 in 91ms :: {"totalPending":1,"readyToExport":2,"to…
+9:44:28 AM [express] GET /api/invoices 200 in 154ms :: []
+9:44:32 AM [express] GET /api/invoices 200 in 152ms :: [{"id":9,"invoiceNumber":"00110104250","vendo…
+9:44:43 AM [express] PATCH /api/invoices/9 200 in 437ms :: {"id":9,"invoiceNumber":"00110104250","ve…
+9:44:43 AM [express] GET /api/vin-lookup/12345678 200 in 589ms :: {"found":false}
+9:44:44 AM [express] PATCH /api/invoices/4 200 in 432ms :: {"id":4,"invoiceNumber":"TEST-2025-001","…
+9:44:44 AM [express] POST /api/export/csv 200 in 745ms
+9:52:08 AM [express] POST /api/export/csv 400 in 141ms :: {"message":"No approved invoices to export…
+9:52:16 AM [express] GET /api/invoices 200 in 76ms :: [{"id":9,"invoiceNumber":"00110104250","vendor…
+9:52:25 AM [express] PATCH /api/invoices/9/status 200 in 451ms :: {"id":9,"invoiceNumber":"001101042…
+9:52:34 AM [express] POST /api/export/csv 200 in 609ms
+9:53:06 AM [express] GET /api/invoices 200 in 70ms :: [{"id":9,"invoiceNumber":"00110104250","vendor…
+9:53:18 AM [express] GET /api/invoices 200 in 73ms :: [{"id":9,"invoiceNumber":"00110104250","vendor…
+Upload endpoint called
+9:54:19 AM [express] POST /api/upload 200 in 157ms :: {"id":12,"filename":"41b1db416edf973486396eb48…
+Creating invoice with request body: {
+  invoiceNumber: 'UPLOAD-1754405659769',
+  vendorName: 'Pending Entry',
+  vendorNumber: 'PENDING',
+  invoiceDate: '2025-08-05',
+  invoiceAmount: '0.00',
+  dueDate: '2025-09-04',
+  vin: 'PENDING',
+  invoiceType: 'Parts',
+  description: 'Uploaded file: IMG_8228.jpg',
+  uploadedBy: 1,
+  status: 'pending_entry'
+}
+Parsed invoice data: {
+  invoiceNumber: 'UPLOAD-1754405659769',
+  vendorName: 'Pending Entry',
+  vendorNumber: 'PENDING',
+  invoiceDate: 2025-08-05T00:00:00.000Z,
+  invoiceAmount: '0.00',
+  dueDate: 2025-09-04T00:00:00.000Z,
+  vin: 'PENDING',
+  invoiceType: 'Parts',
+  description: 'Uploaded file: IMG_8228.jpg',
+  status: 'pending_entry',
+  uploadedBy: 1
+}
+Status from frontend: pending_entry
+Final status to use: pending_entry
+Override status for uploaded invoice: pending_entry
+9:54:20 AM [express] POST /api/invoices 200 in 302ms :: {"id":10,"invoiceNumber":"UPLOAD-17544056597…
+9:54:20 AM [express] PATCH /api/files/12/invoice 200 in 297ms :: {"id":12,"filename":"41b1db416edf97…
+9:54:21 AM [express] GET /api/invoices 200 in 69ms :: [{"id":10,"invoiceNumber":"UPLOAD-175440565976…
+9:54:24 AM [express] GET /api/invoices/10/files 200 in 153ms :: [{"id":12,"filename":"41b1db416edf97…
+9:54:24 AM [express] GET /api/files/12 200 in 152ms
+9:54:27 AM [express] GET /api/invoices/10/files 304 in 158ms :: [{"id":12,"filename":"41b1db416edf97…
+9:54:27 AM [express] GET /api/vendors 304 in 385ms :: [{"id":1,"vendorNumber":"1-800-Radiator","vend…
+9:54:30 AM [express] GET /api/vendors 304 in 214ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:54:30 AM [express] GET /api/vendors 304 in 357ms :: [{"id":1,"vendorNumber":"1-800-Radiator","vend…
+9:54:30 AM [express] GET /api/vendors 304 in 209ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:54:30 AM [express] GET /api/vendors 304 in 218ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:54:30 AM [express] GET /api/vendors 304 in 149ms :: [{"id":9,"vendorNumber":"901 Sounds","vendorNa…
+9:54:32 AM [express] GET /api/vendors 304 in 150ms :: [{"id":450,"vendorNumber":"Autozone","vendorNa…
+9:54:32 AM [express] GET /api/vendors 304 in 157ms :: [{"id":450,"vendorNumber":"Autozone","vendorNa…
+9:54:32 AM [express] GET /api/vendors 304 in 148ms :: [{"id":450,"vendorNumber":"Autozone","vendorNa…
+9:54:33 AM [express] GET /api/vendors 200 in 146ms :: [{"id":450,"vendorNumber":"Autozone","vendorNa…
+9:55:29 AM [express] PATCH /api/invoices/10 200 in 444ms :: {"id":10,"invoiceNumber":"00110104246","…
+9:55:29 AM [express] GET /api/invoices 200 in 73ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+9:55:33 AM [express] GET /api/invoices 200 in 147ms :: [{"id":10,"invoiceNumber":"00110104246","vend…
+9:55:39 AM [express] GET /api/invoices/10/files 304 in 145ms :: [{"id":12,"filename":"41b1db416edf97…
+9:55:41 AM [express] PATCH /api/invoices/10/status 200 in 444ms :: {"id":10,"invoiceNumber":"0011010…
+9:55:41 AM [express] GET /api/dashboard/stats 200 in 74ms :: {"totalPending":1,"readyToExport":1,"to…
+9:55:41 AM [express] GET /api/invoices 200 in 76ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+9:55:41 AM [express] GET /api/invoices 200 in 148ms :: []
+9:55:44 AM [express] GET /api/invoices 200 in 164ms :: [{"id":10,"invoiceNumber":"00110104246","vend…
+9:55:52 AM [express] PATCH /api/invoices/10 200 in 447ms :: {"id":10,"invoiceNumber":"00110104246","…
+9:55:52 AM [express] POST /api/export/csv 200 in 575ms
+9:56:09 AM [express] POST /api/export/csv 400 in 147ms :: {"message":"No approved invoices to export…
+9:59:08 AM [express] GET /api/dashboard/stats 200 in 75ms :: {"totalPending":1,"readyToExport":0,"to…
+9:59:08 AM [express] GET /api/invoices 200 in 79ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+9:59:53 AM [express] GET /api/dashboard/stats 200 in 73ms :: {"totalPending":1,"readyToExport":0,"to…
+9:59:53 AM [express] GET /api/invoices 200 in 80ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+10:02:43 AM [express] PATCH /api/invoices/10/status 200 in 438ms :: {"id":10,"invoiceNumber":"0011010…
+10:02:43 AM [express] POST /api/export/csv 200 in 588ms
+10:03:21 AM [express] PATCH /api/invoices/10 200 in 444ms :: {"id":10,"invoiceNumber":"00110104246","…
+10:04:57 AM [express] PATCH /api/invoices/10/status 200 in 439ms :: {"id":10,"invoiceNumber":"0011010…
+10:04:58 AM [express] POST /api/export/csv 200 in 588ms
+10:05:36 AM [express] PATCH /api/invoices/10 200 in 448ms :: {"id":10,"invoiceNumber":"00110104246","…
+10:05:36 AM [express] POST /api/export/csv 400 in 144ms :: {"message":"No approved invoices to export…
+10:05:42 AM [express] PATCH /api/invoices/10 200 in 441ms :: {"id":10,"invoiceNumber":"00110104246","…
+10:05:42 AM [express] POST /api/export/csv 400 in 145ms :: {"message":"No approved invoices to export…
+10:05:43 AM [express] GET /api/invoices 200 in 80ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+10:05:45 AM [express] GET /api/invoices/8/files 304 in 127ms :: [{"id":10,"filename":"9381720c2888dc4…
+10:05:45 AM [express] GET /api/files/10 304 in 137ms
+10:05:48 AM [express] GET /api/invoices/8/files 304 in 146ms :: [{"id":10,"filename":"9381720c2888dc4…
+10:05:48 AM [express] GET /api/vendors 304 in 355ms :: [{"id":1,"vendorNumber":"1-800-Radiator","vend…
+10:06:36 AM [express] PATCH /api/invoices/8 200 in 443ms :: {"id":8,"invoiceNumber":"0012312","vendor…
+10:06:36 AM [express] GET /api/invoices 200 in 72ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+10:06:55 AM [express] GET /api/invoices 200 in 146ms :: [{"id":8,"invoiceNumber":"0012312","vendorId"…
+10:06:58 AM [express] PATCH /api/invoices/8/status 200 in 441ms :: {"id":8,"invoiceNumber":"0012312",…
+10:06:58 AM [express] GET /api/invoices 200 in 76ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+10:06:58 AM [express] GET /api/invoices 200 in 149ms :: []
+10:06:58 AM [express] GET /api/dashboard/stats 200 in 752ms :: {"totalPending":0,"readyToExport":1,"t…
+10:07:00 AM [express] GET /api/invoices 200 in 143ms :: [{"id":8,"invoiceNumber":"0012312","vendorId"…
+10:07:03 AM [express] PATCH /api/invoices/8 200 in 450ms :: {"id":8,"invoiceNumber":"0012312","vendor…
+10:07:03 AM [express] POST /api/export/csv 200 in 580ms
+10:08:32 AM [express] POST /api/export/csv 400 in 155ms :: {"message":"No approved invoices to export…
+10:09:02 AM [express] GET /api/invoices 500 in 22961ms :: {"message":"Failed to fetch invoices"}
+10:09:15 AM [express] GET /api/invoices 200 in 73ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+10:56:55 AM [express] GET /api/dashboard/stats 200 in 851ms :: {"totalPending":0,"readyToExport":0,"t…
+10:56:55 AM [express] GET /api/invoices 200 in 858ms :: [{"id":10,"invoiceNumber":"00110104246","vend…
+10:56:55 AM [express] GET /api/invoices 200 in 920ms :: []
+4:36:28 PM [express] GET /api/dashboard/stats 304 in 799ms :: {"totalPending":0,"readyToExport":0,"t…
+4:36:28 PM [express] GET /api/invoices 304 in 834ms :: [{"id":10,"invoiceNumber":"00110104246","vend…
+4:36:28 PM [express] GET /api/invoices 304 in 854ms :: []
+8:44:04 PM [express] GET /api/dashboard/stats 304 in 975ms :: {"totalPending":0,"readyToExport":0,"t…
+8:44:04 PM [express] GET /api/invoices 304 in 982ms :: [{"id":10,"invoiceNumber":"00110104246","vend…
+8:44:04 PM [express] GET /api/invoices 304 in 1043ms :: []
+8:47:29 PM [express] GET /api/dashboard/stats 304 in 77ms :: {"totalPending":0,"readyToExport":0,"to…
+8:47:29 PM [express] GET /api/invoices 304 in 97ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+8:47:29 PM [express] GET /api/invoices 304 in 172ms :: []
+8:47:31 PM [express] GET /api/dashboard/stats 304 in 64ms :: {"totalPending":0,"readyToExport":0,"to…
+8:47:31 PM [express] GET /api/invoices 304 in 68ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+8:47:31 PM [express] GET /api/invoices 304 in 131ms :: []
+8:47:34 PM [express] GET /api/dashboard/stats 304 in 63ms :: {"totalPending":0,"readyToExport":0,"to…
+8:47:34 PM [express] GET /api/invoices 304 in 63ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+8:47:34 PM [express] GET /api/invoices 304 in 131ms :: []
+8:47:38 PM [express] GET /api/invoices 304 in 60ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+8:47:38 PM [express] GET /api/dashboard/stats 304 in 67ms :: {"totalPending":0,"readyToExport":0,"to…
+8:47:38 PM [express] GET /api/invoices 304 in 134ms :: []
+8:48:31 PM [express] GET /api/dashboard/stats 304 in 67ms :: {"totalPending":0,"readyToExport":0,"to…
+8:48:31 PM [express] GET /api/invoices 304 in 68ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+8:48:31 PM [express] GET /api/invoices 304 in 119ms :: []
+9:06:04 PM [express] GET /api/dashboard/stats 304 in 83ms :: {"totalPending":0,"readyToExport":0,"to…
+9:06:04 PM [express] GET /api/invoices 304 in 87ms :: [{"id":10,"invoiceNumber":"00110104246","vendo…
+9:06:04 PM [express] GET /api/invoices 304 in 141ms :: []

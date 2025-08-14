@@ -45,7 +45,7 @@ export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps)
       vendorNumber: "",
       invoiceNumber: "",
       invoiceDate: "",
-      invoiceAmount: 0,
+      invoiceAmount: "" as any,
       vin: "",
       invoiceType: "",
       description: "",

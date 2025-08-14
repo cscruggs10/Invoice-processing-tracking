@@ -1,0 +1,17 @@
+.env
+.env.local
+node_modules/
+.git/
+.gitignore
+*.log
+uploads/
+.local/
+migrations/
+drizzle.config.ts
+setup-postgres.sh
+*.csv
+*.json
+!package.json
+!vercel.json
+!tsconfig.json
+!components.json

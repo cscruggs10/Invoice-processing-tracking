@@ -103,28 +103,82 @@ export default function Review() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 skeleton"></div>
+          <Card className="modern-card animate-pulse">
+            <CardContent className="p-6">
+              <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded skeleton"></div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Review Queue</h1>
-        <p className="text-gray-600">Review and approve invoices ready for processing</p>
+        <h1 className="text-3xl font-bold gradient-text">Review Queue</h1>
+        <p className="text-muted-foreground mt-2">Review and approve invoices ready for processing</p>
       </div>
 
-      <Card>
-        <CardHeader>
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="modern-card hover-lift border-0">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Eye className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-orange-600">{invoices?.length || 0}</p>
+                <p className="text-sm text-muted-foreground">Pending Review</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="modern-card hover-lift border-0">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <CheckCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-blue-600">{selectedInvoices.length}</p>
+                <p className="text-sm text-muted-foreground">Selected</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="modern-card hover-lift border-0">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-600">
+                  ${invoices?.reduce((sum, inv) => sum + parseFloat(inv.invoiceAmount), 0).toFixed(2) || "0.00"}
+                </p>
+                <p className="text-sm text-muted-foreground">Total Value</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="modern-card border-0">
+        <CardHeader className="border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between">
-            <CardTitle>Invoices Pending Review</CardTitle>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Eye className="h-5 w-5 text-purple-600" />
+              Invoices Pending Review
+            </CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="hover-lift">
                 <Filter className="h-4 w-4 mr-1" />
                 Filter
               </Button>
@@ -133,7 +187,7 @@ export default function Review() {
                   size="sm" 
                   onClick={handleBulkApprove}
                   disabled={updateInvoiceStatus.isPending}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="btn-modern bg-green-600 hover:bg-green-700 text-white"
                 >
                   <CheckCheck className="h-4 w-4 mr-1" />
                   Bulk Approve ({selectedInvoices.length})
