@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import formidable from 'formidable';
 
 dotenv.config();
 
@@ -14,6 +15,17 @@ const port = process.env.PORT || 8080;
 // Basic middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// CORS headers for debugging
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Log all requests
 app.use((req, res, next) => {
@@ -42,22 +54,48 @@ app.get('/api/health', (req, res) => {
 
 // Simple upload handler without Cloudinary for now
 app.post('/api/upload-stream', async (req, res) => {
-  console.log('Upload endpoint hit');
+  console.log('Upload endpoint hit at:', new Date().toISOString());
+  console.log('Headers:', req.headers);
+  console.log('Content-Type:', req.headers['content-type']);
   
   try {
-    // For now, just acknowledge the upload
+    // Parse the multipart form data
+    const form = formidable({
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      keepExtensions: true,
+    });
+    
+    console.log('Parsing form data...');
+    const [fields, files] = await form.parse(req);
+    console.log('Form parsed successfully');
+    console.log('Files received:', Object.keys(files));
+    
+    const file = files.file?.[0];
+    if (file) {
+      console.log('File details:', {
+        name: file.originalFilename,
+        size: file.size,
+        type: file.mimetype
+      });
+    }
+    
+    // Return mock success response
     res.json({
       id: Date.now(),
-      filename: 'test-upload',
-      originalName: 'test.jpg',
-      mimeType: 'image/jpeg',
-      fileSize: 1000,
+      filename: file?.originalFilename || 'test-upload',
+      originalName: file?.originalFilename || 'test.jpg',
+      mimeType: file?.mimetype || 'image/jpeg',
+      fileSize: file?.size || 1000,
       filePath: 'https://via.placeholder.com/150',
       uploadedBy: 1,
       uploadedAt: new Date().toISOString(),
     });
+    
+    console.log('Upload response sent successfully');
+    
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('Upload error details:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       message: 'Upload failed', 
       error: error.message 
