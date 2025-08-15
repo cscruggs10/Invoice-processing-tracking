@@ -124,8 +124,24 @@ app.get('/api/health', async (req, res) => {
 
 // Test if endpoint is even reachable
 app.get('/api/upload-test', (req, res) => {
-  console.log('Upload test GET endpoint hit');
-  res.json({ message: 'Upload endpoint is reachable', timestamp: new Date().toISOString() });
+  try {
+    console.log('Upload test GET endpoint hit');
+    res.json({ message: 'Upload endpoint is reachable', timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Upload test error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Test POST endpoint
+app.post('/api/test-post', (req, res) => {
+  try {
+    console.log('Test POST endpoint hit');
+    res.json({ message: 'POST endpoint works', timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Test POST error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Simple upload handler
