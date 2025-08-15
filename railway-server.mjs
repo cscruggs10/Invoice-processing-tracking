@@ -439,4 +439,4 @@ process.on('unhandledRejection', (reason, promise) => {
   // Don't exit - try to keep running
 });
 
-console.log('Server initialization complete - NEON DATABASE VERSION 2.0');
+console.log('Server initialization complete - NEON DATABASE VERSION 3.0 - FIXED URL');
