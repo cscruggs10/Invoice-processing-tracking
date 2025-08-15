@@ -5,10 +5,7 @@ nixPkgs = ["nodejs-18_x", "npm-9_x"]
 cmds = ["npm ci || npm install"]
 
 [phases.build]
-cmds = ["echo 'Skipping build for debugging'"]
+cmds = ["npm run build"]
 
 [start]
-cmd = "npm run start:simple"
-
-[variables]
-PORT = "5000"
+cmd = "npm run start"
