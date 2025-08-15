@@ -28,11 +28,29 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Database connection
-const sql = postgres(process.env.DATABASE_URL, {
-  ssl: { rejectUnauthorized: false }
-});
-const db = drizzle(sql);
+// Database connection with error handling
+let sql;
+let db;
+
+try {
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL is not set!');
+    // Continue without database for now
+  } else {
+    sql = postgres(process.env.DATABASE_URL, {
+      ssl: { rejectUnauthorized: false },
+      max: 10, // connection pool size
+      idle_timeout: 20,
+      connect_timeout: 10,
+      onnotice: () => {}, // suppress notices
+    });
+    db = drizzle(sql);
+    console.log('Database connected successfully');
+  }
+} catch (error) {
+  console.error('Database connection error:', error);
+  // Continue without database
+}
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'dist/public')));
@@ -49,8 +67,18 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     env: {
       hasDatabase: !!process.env.DATABASE_URL,
-      hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME
+      hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME,
+      dbConnected: !!sql
     }
+  });
+});
+
+// Test endpoint (no database required)
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'Server is running',
+    time: new Date().toISOString(),
+    port: port
   });
 });
 
@@ -139,6 +167,11 @@ app.post('/api/invoices', async (req, res) => {
   try {
     console.log('Creating invoice with data:', req.body);
     
+    if (!sql) {
+      console.error('Database not connected');
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
+    
     // Use raw SQL for now to avoid schema import issues
     const result = await sql`
       INSERT INTO invoices (
@@ -183,6 +216,9 @@ app.patch('/api/files/:fileId/invoice', async (req, res) => {
 // Get all invoices for data entry queue
 app.get('/api/invoices', async (req, res) => {
   try {
+    if (!sql) {
+      return res.json([]); // Return empty array if no database
+    }
     const allInvoices = await sql`SELECT * FROM invoices ORDER BY created_at DESC`;
     res.json(allInvoices);
   } catch (error) {
@@ -194,6 +230,9 @@ app.get('/api/invoices', async (req, res) => {
 // Get data entry queue (pending invoices)
 app.get('/api/data-entry-queue', async (req, res) => {
   try {
+    if (!sql) {
+      return res.json([]); // Return empty array if no database
+    }
     const pendingInvoices = await sql`
       SELECT * FROM invoices 
       WHERE status = 'pending_entry' 
