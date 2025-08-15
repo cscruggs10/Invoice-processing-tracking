@@ -8,7 +8,6 @@ import { eq } from 'drizzle-orm';
 import { v2 as cloudinary } from 'cloudinary';
 import formidable from 'formidable';
 import fs from 'fs';
-import { invoices, uploadedFiles } from './shared/schema.js';
 
 dotenv.config();
 
@@ -134,23 +133,30 @@ app.post('/api/invoices', async (req, res) => {
   try {
     console.log('Creating invoice with data:', req.body);
     
-    // Insert invoice into database
-    const [newInvoice] = await db.insert(invoices).values({
-      invoiceNumber: req.body.invoiceNumber,
-      vendorName: req.body.vendorName,
-      vendorNumber: req.body.vendorNumber,
-      invoiceDate: new Date(req.body.invoiceDate),
-      invoiceAmount: req.body.invoiceAmount,
-      dueDate: new Date(req.body.dueDate),
-      vin: req.body.vin,
-      invoiceType: req.body.invoiceType,
-      description: req.body.description,
-      uploadedBy: req.body.uploadedBy || 1,
-      status: req.body.status || 'pending_entry'
-    }).returning();
+    // Use raw SQL for now to avoid schema import issues
+    const result = await sql`
+      INSERT INTO invoices (
+        invoice_number, vendor_name, vendor_number, 
+        invoice_date, invoice_amount, due_date, 
+        vin, invoice_type, description, 
+        uploaded_by, status
+      ) VALUES (
+        ${req.body.invoiceNumber},
+        ${req.body.vendorName},
+        ${req.body.vendorNumber},
+        ${new Date(req.body.invoiceDate)},
+        ${req.body.invoiceAmount},
+        ${new Date(req.body.dueDate)},
+        ${req.body.vin},
+        ${req.body.invoiceType},
+        ${req.body.description},
+        ${req.body.uploadedBy || 1},
+        ${req.body.status || 'pending_entry'}
+      ) RETURNING *
+    `;
     
-    console.log('Invoice created:', newInvoice);
-    res.json(newInvoice);
+    console.log('Invoice created:', result[0]);
+    res.json(result[0]);
   } catch (error) {
     console.error('Error creating invoice:', error);
     res.status(500).json({ error: 'Failed to create invoice', details: error.message });
@@ -171,7 +177,7 @@ app.patch('/api/files/:fileId/invoice', async (req, res) => {
 // Get all invoices for data entry queue
 app.get('/api/invoices', async (req, res) => {
   try {
-    const allInvoices = await db.select().from(invoices);
+    const allInvoices = await sql`SELECT * FROM invoices ORDER BY created_at DESC`;
     res.json(allInvoices);
   } catch (error) {
     console.error('Error fetching invoices:', error);
@@ -182,9 +188,11 @@ app.get('/api/invoices', async (req, res) => {
 // Get data entry queue (pending invoices)
 app.get('/api/data-entry-queue', async (req, res) => {
   try {
-    const pendingInvoices = await db.select()
-      .from(invoices)
-      .where(eq(invoices.status, 'pending_entry'));
+    const pendingInvoices = await sql`
+      SELECT * FROM invoices 
+      WHERE status = 'pending_entry' 
+      ORDER BY created_at DESC
+    `;
     res.json(pendingInvoices);
   } catch (error) {
     console.error('Error fetching data entry queue:', error);
