@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "vite build",
-    "start": "node production-server.mjs",
+    "start": "node railway-server.mjs",
+    "start:production": "node production-server.mjs",
     "start:dist": "node dist-server.js",
     "start:direct": "node dist/index.js",
     "start:simple": "node server/simple-test.js",
