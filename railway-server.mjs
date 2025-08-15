@@ -14,21 +14,24 @@ const app = express();
 const port = process.env.PORT || 8080;
 
 // Database connection
-let sql;
+let sql = null;
 try {
   if (process.env.DATABASE_URL) {
+    console.log('Setting up database connection...');
     sql = postgres(process.env.DATABASE_URL, {
       ssl: { rejectUnauthorized: false },
       max: 5,
       idle_timeout: 20,
       connect_timeout: 10,
+      onnotice: () => {}, // suppress notices
     });
-    console.log('Database connected');
+    console.log('Database connection initialized');
   } else {
-    console.log('No DATABASE_URL - running without database');
+    console.log('No DATABASE_URL environment variable');
   }
 } catch (error) {
-  console.error('Database connection error:', error);
+  console.error('Database setup error:', error);
+  sql = null;
 }
 
 // Basic middleware
@@ -55,21 +58,63 @@ app.use((req, res, next) => {
 // Serve static files
 app.use(express.static(path.join(__dirname, 'dist/public')));
 
-// Health check
+// Basic health check (no database)
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK',
-    timestamp: new Date().toISOString(),
+// Debug endpoint
+app.get('/api/debug', (req, res) => {
+  res.json({
     env: {
-      hasDatabase: !!process.env.DATABASE_URL,
-      dbConnected: !!sql,
-      hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME
-    }
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      hasDB: !!process.env.DATABASE_URL,
+      dbUrl: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
+      sqlObject: !!sql
+    },
+    timestamp: new Date().toISOString()
   });
+});
+
+app.get('/api/health', async (req, res) => {
+  try {
+    let dbStatus = 'not_configured';
+    let dbError = null;
+    
+    if (process.env.DATABASE_URL) {
+      if (sql) {
+        try {
+          // Test database connection
+          await sql`SELECT 1 as test`;
+          dbStatus = 'connected';
+        } catch (err) {
+          dbStatus = 'error';
+          dbError = err.message;
+        }
+      } else {
+        dbStatus = 'not_connected';
+      }
+    }
+    
+    res.json({ 
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      env: {
+        hasDatabase: !!process.env.DATABASE_URL,
+        dbStatus: dbStatus,
+        dbError: dbError,
+        hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME
+      }
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Simple upload handler without Cloudinary for now
