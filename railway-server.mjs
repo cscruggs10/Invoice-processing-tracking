@@ -144,6 +144,31 @@ app.post('/api/test-post', (req, res) => {
   }
 });
 
+// Test database connection
+app.get('/api/test-db', async (req, res) => {
+  try {
+    console.log('Testing database connection...');
+    
+    if (!sql) {
+      return res.json({ status: 'No SQL connection' });
+    }
+    
+    const result = await sql`SELECT NOW() as current_time, 1 as test_number`;
+    res.json({ 
+      status: 'Database connected',
+      result: result[0],
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database test error:', error);
+    res.status(500).json({ 
+      status: 'Database error',
+      error: error.message,
+      code: error.code 
+    });
+  }
+});
+
 // Simple upload handler
 app.post('/api/upload-stream', (req, res) => {
   console.log('Upload POST endpoint hit at:', new Date().toISOString());
@@ -205,14 +230,30 @@ app.post('/api/invoices', async (req, res) => {
 
 app.get('/api/invoices', async (req, res) => {
   try {
+    console.log('Fetching invoices...');
+    console.log('SQL object exists:', !!sql);
+    
     if (!sql) {
+      console.log('No SQL connection, returning empty array');
       return res.json([]);
     }
+    
+    console.log('Attempting database query...');
     const allInvoices = await sql`SELECT * FROM invoices ORDER BY created_at DESC`;
+    console.log('Query successful, found', allInvoices.length, 'invoices');
     res.json(allInvoices);
   } catch (error) {
     console.error('Error fetching invoices:', error);
-    res.status(500).json({ error: 'Failed to fetch invoices' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch invoices',
+      details: error.message,
+      code: error.code
+    });
   }
 });
 
