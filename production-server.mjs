@@ -37,10 +37,16 @@ const db = drizzle(sql);
 // Serve static files
 app.use(express.static(path.join(__dirname, 'dist/public')));
 
-// Health check
+// Root health check for Railway
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// API Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK',
+    timestamp: new Date().toISOString(),
     env: {
       hasDatabase: !!process.env.DATABASE_URL,
       hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME
@@ -213,11 +219,30 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist/public/index.html'));
 });
 
-app.listen(port, '0.0.0.0', () => {
+// Start server
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Production server running on port ${port}`);
   console.log('Environment check:', {
     DATABASE_URL: !!process.env.DATABASE_URL,
     CLOUDINARY: !!process.env.CLOUDINARY_CLOUD_NAME,
     API_KEY: !!process.env.CLOUDINARY_API_KEY
   });
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+// Keep process alive
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
