@@ -3,7 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import formidable from 'formidable';
-import postgres from 'postgres';
+import pkg from 'pg';
+const { Pool } = pkg;
 
 dotenv.config();
 
@@ -13,25 +14,35 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Database connection
-let sql = null;
+// Database connection using pg library (more reliable for Railway)
+let pool = null;
 try {
   if (process.env.DATABASE_URL) {
-    console.log('Setting up database connection...');
-    sql = postgres(process.env.DATABASE_URL, {
-      ssl: { rejectUnauthorized: false },
-      max: 5,
-      idle_timeout: 20,
-      connect_timeout: 10,
-      onnotice: () => {}, // suppress notices
+    console.log('Setting up database connection with pg...');
+    
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      max: 3,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
     });
-    console.log('Database connection initialized');
+    
+    console.log('Database pool initialized');
+    
+    // Test connection
+    pool.on('error', (err) => {
+      console.error('Database pool error:', err);
+    });
+    
   } else {
     console.log('No DATABASE_URL environment variable');
   }
 } catch (error) {
   console.error('Database setup error:', error);
-  sql = null;
+  pool = null;
 }
 
 // Basic middleware
@@ -149,14 +160,17 @@ app.get('/api/test-db', async (req, res) => {
   try {
     console.log('Testing database connection...');
     
-    if (!sql) {
-      return res.json({ status: 'No SQL connection' });
+    if (!pool) {
+      return res.json({ status: 'No database pool' });
     }
     
-    const result = await sql`SELECT NOW() as current_time, 1 as test_number`;
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW() as current_time, 1 as test_number');
+    client.release();
+    
     res.json({ 
       status: 'Database connected',
-      result: result[0],
+      result: result.rows[0],
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -195,33 +209,36 @@ app.post('/api/invoices', async (req, res) => {
   console.log('Creating invoice:', req.body);
   
   try {
-    if (!sql) {
+    if (!pool) {
       return res.status(503).json({ error: 'Database not available' });
     }
     
-    const result = await sql`
+    const client = await pool.connect();
+    const result = await client.query(`
       INSERT INTO invoices (
         invoice_number, vendor_name, vendor_number, 
         invoice_date, invoice_amount, due_date, 
         vin, invoice_type, description, 
         uploaded_by, status
-      ) VALUES (
-        ${req.body.invoiceNumber},
-        ${req.body.vendorName},
-        ${req.body.vendorNumber},
-        ${new Date(req.body.invoiceDate)},
-        ${req.body.invoiceAmount},
-        ${new Date(req.body.dueDate)},
-        ${req.body.vin},
-        ${req.body.invoiceType},
-        ${req.body.description},
-        ${req.body.uploadedBy || 1},
-        ${req.body.status || 'pending_entry'}
-      ) RETURNING *
-    `;
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+      RETURNING *
+    `, [
+      req.body.invoiceNumber,
+      req.body.vendorName,
+      req.body.vendorNumber,
+      new Date(req.body.invoiceDate),
+      req.body.invoiceAmount,
+      new Date(req.body.dueDate),
+      req.body.vin,
+      req.body.invoiceType,
+      req.body.description,
+      req.body.uploadedBy || 1,
+      req.body.status || 'pending_entry'
+    ]);
+    client.release();
     
-    console.log('Invoice created in database:', result[0]);
-    res.json(result[0]);
+    console.log('Invoice created in database:', result.rows[0]);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Error creating invoice:', error);
     res.status(500).json({ error: 'Failed to create invoice', details: error.message });
@@ -231,17 +248,20 @@ app.post('/api/invoices', async (req, res) => {
 app.get('/api/invoices', async (req, res) => {
   try {
     console.log('Fetching invoices...');
-    console.log('SQL object exists:', !!sql);
+    console.log('Pool exists:', !!pool);
     
-    if (!sql) {
-      console.log('No SQL connection, returning empty array');
+    if (!pool) {
+      console.log('No database pool, returning empty array');
       return res.json([]);
     }
     
     console.log('Attempting database query...');
-    const allInvoices = await sql`SELECT * FROM invoices ORDER BY created_at DESC`;
-    console.log('Query successful, found', allInvoices.length, 'invoices');
-    res.json(allInvoices);
+    const client = await pool.connect();
+    const result = await client.query('SELECT * FROM invoices ORDER BY created_at DESC');
+    client.release();
+    
+    console.log('Query successful, found', result.rows.length, 'invoices');
+    res.json(result.rows);
   } catch (error) {
     console.error('Error fetching invoices:', error);
     console.error('Error details:', {
@@ -259,16 +279,20 @@ app.get('/api/invoices', async (req, res) => {
 
 app.get('/api/data-entry-queue', async (req, res) => {
   try {
-    if (!sql) {
+    if (!pool) {
       return res.json([]);
     }
-    const pendingInvoices = await sql`
+    
+    const client = await pool.connect();
+    const result = await client.query(`
       SELECT * FROM invoices 
       WHERE status = 'pending_entry' 
       ORDER BY created_at DESC
-    `;
-    console.log('Data entry queue:', pendingInvoices.length, 'invoices');
-    res.json(pendingInvoices);
+    `);
+    client.release();
+    
+    console.log('Data entry queue:', result.rows.length, 'invoices');
+    res.json(result.rows);
   } catch (error) {
     console.error('Error fetching data entry queue:', error);
     res.status(500).json({ error: 'Failed to fetch data entry queue' });
