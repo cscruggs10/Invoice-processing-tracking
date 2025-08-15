@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import formidable from 'formidable';
+import postgres from 'postgres';
 
 dotenv.config();
 
@@ -11,6 +12,24 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 8080;
+
+// Database connection
+let sql;
+try {
+  if (process.env.DATABASE_URL) {
+    sql = postgres(process.env.DATABASE_URL, {
+      ssl: { rejectUnauthorized: false },
+      max: 5,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
+    console.log('Database connected');
+  } else {
+    console.log('No DATABASE_URL - running without database');
+  }
+} catch (error) {
+  console.error('Database connection error:', error);
+}
 
 // Basic middleware
 app.use(express.json({ limit: '10mb' }));
@@ -47,6 +66,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     env: {
       hasDatabase: !!process.env.DATABASE_URL,
+      dbConnected: !!sql,
       hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME
     }
   });
@@ -103,22 +123,73 @@ app.post('/api/upload-stream', async (req, res) => {
   }
 });
 
-// Mock invoice endpoints
-app.post('/api/invoices', (req, res) => {
+// Real invoice endpoints with database
+app.post('/api/invoices', async (req, res) => {
   console.log('Creating invoice:', req.body);
-  res.json({
-    id: Date.now(),
-    ...req.body,
-    createdAt: new Date().toISOString()
-  });
+  
+  try {
+    if (!sql) {
+      return res.status(503).json({ error: 'Database not available' });
+    }
+    
+    const result = await sql`
+      INSERT INTO invoices (
+        invoice_number, vendor_name, vendor_number, 
+        invoice_date, invoice_amount, due_date, 
+        vin, invoice_type, description, 
+        uploaded_by, status
+      ) VALUES (
+        ${req.body.invoiceNumber},
+        ${req.body.vendorName},
+        ${req.body.vendorNumber},
+        ${new Date(req.body.invoiceDate)},
+        ${req.body.invoiceAmount},
+        ${new Date(req.body.dueDate)},
+        ${req.body.vin},
+        ${req.body.invoiceType},
+        ${req.body.description},
+        ${req.body.uploadedBy || 1},
+        ${req.body.status || 'pending_entry'}
+      ) RETURNING *
+    `;
+    
+    console.log('Invoice created in database:', result[0]);
+    res.json(result[0]);
+  } catch (error) {
+    console.error('Error creating invoice:', error);
+    res.status(500).json({ error: 'Failed to create invoice', details: error.message });
+  }
 });
 
-app.get('/api/invoices', (req, res) => {
-  res.json([]);
+app.get('/api/invoices', async (req, res) => {
+  try {
+    if (!sql) {
+      return res.json([]);
+    }
+    const allInvoices = await sql`SELECT * FROM invoices ORDER BY created_at DESC`;
+    res.json(allInvoices);
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({ error: 'Failed to fetch invoices' });
+  }
 });
 
-app.get('/api/data-entry-queue', (req, res) => {
-  res.json([]);
+app.get('/api/data-entry-queue', async (req, res) => {
+  try {
+    if (!sql) {
+      return res.json([]);
+    }
+    const pendingInvoices = await sql`
+      SELECT * FROM invoices 
+      WHERE status = 'pending_entry' 
+      ORDER BY created_at DESC
+    `;
+    console.log('Data entry queue:', pendingInvoices.length, 'invoices');
+    res.json(pendingInvoices);
+  } catch (error) {
+    console.error('Error fetching data entry queue:', error);
+    res.status(500).json({ error: 'Failed to fetch data entry queue' });
+  }
 });
 
 app.patch('/api/files/:fileId/invoice', (req, res) => {
