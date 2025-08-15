@@ -49,19 +49,38 @@ app.get('/api/health', (req, res) => {
 
 // Upload endpoint (DealMachine-style streaming)
 app.post('/api/upload-stream', async (req, res) => {
+  console.log('Upload endpoint hit');
+  console.log('Headers:', req.headers);
+  
   try {
     const form = formidable({
       maxFileSize: 10 * 1024 * 1024, // 10MB
       keepExtensions: true,
     });
 
+    console.log('Parsing form...');
     const [fields, files] = await form.parse(req);
+    console.log('Files received:', files);
     const file = files.file?.[0];
 
     if (!file) {
+      console.error('No file in request');
       return res.status(400).json({ message: 'No file uploaded' });
     }
+    
+    console.log('File details:', {
+      name: file.originalFilename,
+      size: file.size,
+      type: file.mimetype
+    });
 
+    console.log('Starting Cloudinary upload...');
+    console.log('Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      has_api_key: !!process.env.CLOUDINARY_API_KEY,
+      has_api_secret: !!process.env.CLOUDINARY_API_SECRET
+    });
+    
     // Stream upload to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -71,12 +90,14 @@ app.post('/api/upload-stream', async (req, res) => {
       },
       (error, result) => {
         if (error) {
-          console.error('Cloudinary error:', error);
+          console.error('Cloudinary upload error:', error);
           return res.status(500).json({ 
             message: 'Upload failed', 
             error: error.message 
           });
         }
+        
+        console.log('Cloudinary upload success:', result.public_id);
 
         // Success response
         const response = {
