@@ -4,9 +4,11 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { eq } from 'drizzle-orm';
 import { v2 as cloudinary } from 'cloudinary';
 import formidable from 'formidable';
 import fs from 'fs';
+import { invoices, uploadedFiles } from './shared/schema.js';
 
 dotenv.config();
 
@@ -127,18 +129,67 @@ app.post('/api/upload-stream', async (req, res) => {
   }
 });
 
-// Mock invoice endpoints for now
-app.post('/api/invoices', (req, res) => {
-  const invoice = {
-    id: Date.now(),
-    ...req.body,
-    createdAt: new Date().toISOString()
-  };
-  res.json(invoice);
+// Create invoice in database
+app.post('/api/invoices', async (req, res) => {
+  try {
+    console.log('Creating invoice with data:', req.body);
+    
+    // Insert invoice into database
+    const [newInvoice] = await db.insert(invoices).values({
+      invoiceNumber: req.body.invoiceNumber,
+      vendorName: req.body.vendorName,
+      vendorNumber: req.body.vendorNumber,
+      invoiceDate: new Date(req.body.invoiceDate),
+      invoiceAmount: req.body.invoiceAmount,
+      dueDate: new Date(req.body.dueDate),
+      vin: req.body.vin,
+      invoiceType: req.body.invoiceType,
+      description: req.body.description,
+      uploadedBy: req.body.uploadedBy || 1,
+      status: req.body.status || 'pending_entry'
+    }).returning();
+    
+    console.log('Invoice created:', newInvoice);
+    res.json(newInvoice);
+  } catch (error) {
+    console.error('Error creating invoice:', error);
+    res.status(500).json({ error: 'Failed to create invoice', details: error.message });
+  }
 });
 
-app.patch('/api/files/:fileId/invoice', (req, res) => {
-  res.json({ success: true });
+// Link file to invoice
+app.patch('/api/files/:fileId/invoice', async (req, res) => {
+  try {
+    // For now just return success since we're not tracking files separately
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error linking file:', error);
+    res.status(500).json({ error: 'Failed to link file' });
+  }
+});
+
+// Get all invoices for data entry queue
+app.get('/api/invoices', async (req, res) => {
+  try {
+    const allInvoices = await db.select().from(invoices);
+    res.json(allInvoices);
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({ error: 'Failed to fetch invoices' });
+  }
+});
+
+// Get data entry queue (pending invoices)
+app.get('/api/data-entry-queue', async (req, res) => {
+  try {
+    const pendingInvoices = await db.select()
+      .from(invoices)
+      .where(eq(invoices.status, 'pending_entry'));
+    res.json(pendingInvoices);
+  } catch (error) {
+    console.error('Error fetching data entry queue:', error);
+    res.status(500).json({ error: 'Failed to fetch data entry queue' });
+  }
 });
 
 // Get Cloudinary config (for frontend)
