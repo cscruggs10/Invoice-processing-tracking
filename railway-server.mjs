@@ -65,16 +65,21 @@ app.get('/health', (req, res) => {
 
 // Debug endpoint
 app.get('/api/debug', (req, res) => {
-  res.json({
-    env: {
-      NODE_ENV: process.env.NODE_ENV,
-      PORT: process.env.PORT,
-      hasDB: !!process.env.DATABASE_URL,
-      dbUrl: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
-      sqlObject: !!sql
-    },
-    timestamp: new Date().toISOString()
-  });
+  try {
+    res.json({
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'not_set',
+        PORT: process.env.PORT || 'not_set',
+        hasDB: !!process.env.DATABASE_URL,
+        dbUrl: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
+        sqlObject: !!sql
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/health', async (req, res) => {
@@ -117,50 +122,29 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Simple upload handler without Cloudinary for now
+// Simple upload handler
 app.post('/api/upload-stream', async (req, res) => {
   console.log('Upload endpoint hit at:', new Date().toISOString());
-  console.log('Headers:', req.headers);
-  console.log('Content-Type:', req.headers['content-type']);
   
   try {
-    // Parse the multipart form data
-    const form = formidable({
-      maxFileSize: 10 * 1024 * 1024, // 10MB
-      keepExtensions: true,
-    });
+    // For now, just return a mock response to test if the endpoint works
+    console.log('Returning mock upload response');
     
-    console.log('Parsing form data...');
-    const [fields, files] = await form.parse(req);
-    console.log('Form parsed successfully');
-    console.log('Files received:', Object.keys(files));
-    
-    const file = files.file?.[0];
-    if (file) {
-      console.log('File details:', {
-        name: file.originalFilename,
-        size: file.size,
-        type: file.mimetype
-      });
-    }
-    
-    // Return mock success response
     res.json({
       id: Date.now(),
-      filename: file?.originalFilename || 'test-upload',
-      originalName: file?.originalFilename || 'test.jpg',
-      mimeType: file?.mimetype || 'image/jpeg',
-      fileSize: file?.size || 1000,
+      filename: 'mock-upload',
+      originalName: 'test.jpg',
+      mimeType: 'image/jpeg',
+      fileSize: 1000,
       filePath: 'https://via.placeholder.com/150',
       uploadedBy: 1,
       uploadedAt: new Date().toISOString(),
     });
     
-    console.log('Upload response sent successfully');
+    console.log('Mock upload response sent');
     
   } catch (error) {
-    console.error('Upload error details:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Upload error:', error);
     res.status(500).json({ 
       message: 'Upload failed', 
       error: error.message 
