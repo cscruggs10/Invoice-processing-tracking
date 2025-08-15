@@ -22,14 +22,25 @@ export default function Upload() {
         const formData = new FormData();
         formData.append('file', file);
         
-        // Upload via our streaming API (works in Vercel serverless)
+        // Upload via our streaming API
+        console.log('Starting upload for file:', file.name);
         const uploadResponse = await fetch('/api/upload-stream', {
           method: 'POST',
           body: formData,
         });
         
+        console.log('Upload response status:', uploadResponse.status);
+        
         if (!uploadResponse.ok) {
-          throw new Error(`Cloudinary upload failed: ${uploadResponse.statusText}`);
+          let errorMessage = `Upload failed: ${uploadResponse.statusText}`;
+          try {
+            const errorData = await uploadResponse.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (e) {
+            // Response wasn't JSON
+          }
+          console.error('Upload error:', errorMessage);
+          throw new Error(errorMessage);
         }
         
         const uploadedFile = await uploadResponse.json();
@@ -94,7 +105,7 @@ export default function Upload() {
       console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "There was an error uploading your files",
+        description: error.message || "There was an error uploading your files. No specific reason",
         variant: "destructive",
       });
     }
