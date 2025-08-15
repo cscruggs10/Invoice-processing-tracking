@@ -197,8 +197,8 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-// Setup database tables
-app.post('/api/setup-db', async (req, res) => {
+// Setup database tables (GET version for easy testing)
+app.get('/api/setup-db', async (req, res) => {
   try {
     console.log('Setting up database tables...');
     
@@ -439,4 +439,4 @@ process.on('unhandledRejection', (reason, promise) => {
   // Don't exit - try to keep running
 });
 
-console.log('Server initialization complete');
+console.log('Server initialization complete - Railway PostgreSQL version');
