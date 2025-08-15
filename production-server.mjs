@@ -82,31 +82,80 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Test upload endpoint (simple echo)
+app.post('/api/test-upload', async (req, res) => {
+  console.log('Test upload endpoint hit');
+  try {
+    const form = formidable({
+      maxFileSize: 10 * 1024 * 1024,
+      keepExtensions: true,
+      uploadDir: '/tmp',
+    });
+    
+    const [fields, files] = await form.parse(req);
+    console.log('Test upload received files:', files);
+    
+    res.json({
+      success: true,
+      filesReceived: !!files.file,
+      fileCount: files.file?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Test upload error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
 // Upload endpoint (DealMachine-style streaming)
 app.post('/api/upload-stream', async (req, res) => {
-  console.log('Upload endpoint hit');
+  console.log('Upload endpoint hit at:', new Date().toISOString());
   console.log('Headers:', req.headers);
   
   try {
+    // Check if Cloudinary is configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.error('Cloudinary not configured');
+      return res.status(503).json({ 
+        message: 'Upload service not configured',
+        error: 'Missing Cloudinary credentials' 
+      });
+    }
+    
     const form = formidable({
       maxFileSize: 10 * 1024 * 1024, // 10MB
       keepExtensions: true,
+      uploadDir: '/tmp', // Specify temp directory for Railway
     });
 
-    console.log('Parsing form...');
-    const [fields, files] = await form.parse(req);
+    console.log('Parsing form data...');
+    let fields, files;
+    try {
+      [fields, files] = await form.parse(req);
+    } catch (parseError) {
+      console.error('Form parse error:', parseError);
+      return res.status(400).json({ 
+        message: 'Failed to parse upload',
+        error: parseError.message 
+      });
+    }
+    
     console.log('Files received:', files);
     const file = files.file?.[0];
 
     if (!file) {
-      console.error('No file in request');
+      console.error('No file in request. Files object:', files);
       return res.status(400).json({ message: 'No file uploaded' });
     }
     
     console.log('File details:', {
       name: file.originalFilename,
       size: file.size,
-      type: file.mimetype
+      type: file.mimetype,
+      path: file.filepath
     });
 
     console.log('Starting Cloudinary upload...');
@@ -150,11 +199,32 @@ app.post('/api/upload-stream', async (req, res) => {
       }
     );
 
+    // Check if file exists before streaming
+    if (!fs.existsSync(file.filepath)) {
+      console.error('File not found at path:', file.filepath);
+      return res.status(500).json({ 
+        message: 'Upload failed - temporary file not found',
+        error: 'File processing error' 
+      });
+    }
+    
     // Pipe the file to Cloudinary
-    fs.createReadStream(file.filepath).pipe(uploadStream);
+    const stream = fs.createReadStream(file.filepath);
+    stream.on('error', (streamError) => {
+      console.error('Stream error:', streamError);
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          message: 'File stream failed',
+          error: streamError.message 
+        });
+      }
+    });
+    
+    stream.pipe(uploadStream);
 
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('Upload endpoint error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       message: 'File upload failed', 
       error: error.message 
