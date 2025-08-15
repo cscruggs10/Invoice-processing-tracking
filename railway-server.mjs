@@ -122,34 +122,31 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Test if endpoint is even reachable
+app.get('/api/upload-test', (req, res) => {
+  console.log('Upload test GET endpoint hit');
+  res.json({ message: 'Upload endpoint is reachable', timestamp: new Date().toISOString() });
+});
+
 // Simple upload handler
-app.post('/api/upload-stream', async (req, res) => {
-  console.log('Upload endpoint hit at:', new Date().toISOString());
+app.post('/api/upload-stream', (req, res) => {
+  console.log('Upload POST endpoint hit at:', new Date().toISOString());
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
   
-  try {
-    // For now, just return a mock response to test if the endpoint works
-    console.log('Returning mock upload response');
-    
-    res.json({
-      id: Date.now(),
-      filename: 'mock-upload',
-      originalName: 'test.jpg',
-      mimeType: 'image/jpeg',
-      fileSize: 1000,
-      filePath: 'https://via.placeholder.com/150',
-      uploadedBy: 1,
-      uploadedAt: new Date().toISOString(),
-    });
-    
-    console.log('Mock upload response sent');
-    
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ 
-      message: 'Upload failed', 
-      error: error.message 
-    });
-  }
+  // Just respond immediately without any async operations
+  res.json({
+    id: Date.now(),
+    filename: 'mock-upload',
+    originalName: 'test.jpg',
+    mimeType: 'image/jpeg',
+    fileSize: 1000,
+    filePath: 'https://via.placeholder.com/150',
+    uploadedBy: 1,
+    uploadedAt: new Date().toISOString(),
+  });
+  
+  console.log('Mock upload response sent');
 });
 
 // Real invoice endpoints with database
