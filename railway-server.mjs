@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import formidable from 'formidable';
+import fs from 'fs';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -14,31 +15,44 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Database connection using pg library (more reliable for Railway)
+// Database connection using Railway PostgreSQL
 let pool = null;
 try {
   if (process.env.DATABASE_URL) {
-    console.log('Setting up database connection with pg...');
+    console.log('Setting up Railway PostgreSQL connection...');
+    console.log('DATABASE_URL starts with:', process.env.DATABASE_URL.substring(0, 30));
     
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: {
+      ssl: process.env.DATABASE_URL.includes('localhost') ? false : {
         rejectUnauthorized: false
       },
-      max: 3,
+      max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
     });
     
-    console.log('Database pool initialized');
+    console.log('Railway PostgreSQL pool initialized');
     
-    // Test connection
+    // Test connection on startup
+    pool.connect()
+      .then(client => {
+        console.log('✅ Database connected successfully');
+        return client.query('SELECT NOW()');
+      })
+      .then(() => {
+        console.log('✅ Database query test successful');
+      })
+      .catch(err => {
+        console.error('❌ Database connection failed:', err);
+      });
+    
     pool.on('error', (err) => {
       console.error('Database pool error:', err);
     });
     
   } else {
-    console.log('No DATABASE_URL environment variable');
+    console.log('No DATABASE_URL environment variable - database will not be available');
   }
 } catch (error) {
   console.error('Database setup error:', error);
@@ -179,6 +193,73 @@ app.get('/api/test-db', async (req, res) => {
       status: 'Database error',
       error: error.message,
       code: error.code 
+    });
+  }
+});
+
+// Setup database tables
+app.post('/api/setup-db', async (req, res) => {
+  try {
+    console.log('Setting up database tables...');
+    
+    if (!pool) {
+      return res.status(503).json({ error: 'No database connection' });
+    }
+    
+    const client = await pool.connect();
+    
+    // Create invoices table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id SERIAL PRIMARY KEY,
+        invoice_number TEXT NOT NULL,
+        vendor_name TEXT NOT NULL,
+        vendor_number TEXT NOT NULL,
+        invoice_date TIMESTAMP NOT NULL,
+        invoice_amount DECIMAL(10, 2) NOT NULL,
+        due_date TIMESTAMP NOT NULL,
+        vin TEXT NOT NULL,
+        invoice_type TEXT NOT NULL,
+        description TEXT,
+        status TEXT NOT NULL DEFAULT 'pending_entry',
+        uploaded_by INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Create indexes
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC)`);
+    
+    // Insert test record
+    await client.query(`
+      INSERT INTO invoices (
+        invoice_number, vendor_name, vendor_number, 
+        invoice_date, invoice_amount, due_date, 
+        vin, invoice_type, description, status, uploaded_by
+      ) VALUES (
+        'RAILWAY-TEST-001', 'Railway Test Vendor', 'RTV001',
+        NOW(), 100.00, NOW() + INTERVAL '30 days',
+        'TEST123', 'Parts', 'Test invoice for Railway PostgreSQL setup',
+        'pending_entry', 1
+      ) ON CONFLICT DO NOTHING
+    `);
+    
+    client.release();
+    
+    console.log('✅ Database setup completed successfully');
+    res.json({ 
+      status: 'Database setup completed',
+      message: 'Tables created and test data inserted',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Database setup error:', error);
+    res.status(500).json({ 
+      error: 'Database setup failed',
+      details: error.message 
     });
   }
 });
