@@ -68,18 +68,17 @@ async function initializeApp() {
   isInitialized = true;
 }
 
-// Initialize for local development
-if (!process.env.VERCEL) {
-  initializeApp().then(() => {
+// Initialize the app and start server
+initializeApp().then(() => {
+  // Only start server if not in Vercel environment
+  if (!process.env.VERCEL) {
     const port = process.env.PORT || 5000;
-    server.listen(port, () => {
-      log(`serving on port ${port}`);
+    const host = '0.0.0.0'; // Important for Railway
+    server.listen(port, host, () => {
+      log(`serving on ${host}:${port}`);
     });
-  });
-} else {
-  // Initialize for Vercel
-  initializeApp();
-}
+  }
+});
 
 // Export for Vercel
 export default app;
