@@ -55,7 +55,8 @@ export default function Upload() {
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
             vin: "PENDING",
             invoiceType: "Parts",
-            description: `Uploaded file: ${file.name} - Image URL: ${uploadedFile.filePath}`,
+            description: `Uploaded file: ${file.name}`,
+            imageUrl: uploadedFile.filePath, // Send Cloudinary URL in dedicated field
             uploadedBy: 1,
             status: "pending_entry"
           }),

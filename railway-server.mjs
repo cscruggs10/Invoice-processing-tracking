@@ -197,6 +197,42 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
+// Add image_url column to existing database
+app.get('/api/add-image-column', async (req, res) => {
+  try {
+    console.log('Adding image_url column to invoices table...');
+    
+    if (!pool) {
+      return res.status(503).json({ error: 'No database connection' });
+    }
+    
+    const client = await pool.connect();
+    
+    // Add image_url column if it doesn't exist
+    await client.query(`
+      ALTER TABLE invoices 
+      ADD COLUMN IF NOT EXISTS image_url TEXT
+    `);
+    
+    console.log('✅ image_url column added successfully');
+    
+    client.release();
+    
+    res.json({ 
+      status: 'Success',
+      message: 'image_url column added to invoices table',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Database migration error:', error);
+    res.status(500).json({ 
+      error: 'Migration failed',
+      details: error.message 
+    });
+  }
+});
+
 // Setup database tables (GET version for easy testing)
 app.get('/api/setup-db', async (req, res) => {
   try {
@@ -347,27 +383,67 @@ app.post('/api/invoices', async (req, res) => {
     }
     
     const client = await pool.connect();
-    const result = await client.query(`
-      INSERT INTO invoices (
-        invoice_number, vendor_name, vendor_number, 
-        invoice_date, invoice_amount, due_date, 
-        vin, invoice_type, description, 
-        uploaded_by, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
-      RETURNING *
-    `, [
-      req.body.invoiceNumber,
-      req.body.vendorName,
-      req.body.vendorNumber,
-      new Date(req.body.invoiceDate),
-      req.body.invoiceAmount,
-      new Date(req.body.dueDate),
-      req.body.vin,
-      req.body.invoiceType,
-      req.body.description,
-      req.body.uploadedBy || 1,
-      req.body.status || 'pending_entry'
-    ]);
+    
+    // Check if image_url column exists
+    const checkColumn = await client.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'invoices' 
+      AND column_name = 'image_url'
+    `);
+    
+    const hasImageColumn = checkColumn.rows.length > 0;
+    
+    let result;
+    if (hasImageColumn) {
+      // Use new schema with image_url column
+      result = await client.query(`
+        INSERT INTO invoices (
+          invoice_number, vendor_name, vendor_number, 
+          invoice_date, invoice_amount, due_date, 
+          vin, invoice_type, description, 
+          uploaded_by, status, image_url
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+        RETURNING *
+      `, [
+        req.body.invoiceNumber,
+        req.body.vendorName,
+        req.body.vendorNumber,
+        new Date(req.body.invoiceDate),
+        req.body.invoiceAmount,
+        new Date(req.body.dueDate),
+        req.body.vin,
+        req.body.invoiceType,
+        req.body.description,
+        req.body.uploadedBy || 1,
+        req.body.status || 'pending_entry',
+        req.body.imageUrl || null  // Store the Cloudinary URL here
+      ]);
+    } else {
+      // Fallback to old schema without image_url
+      result = await client.query(`
+        INSERT INTO invoices (
+          invoice_number, vendor_name, vendor_number, 
+          invoice_date, invoice_amount, due_date, 
+          vin, invoice_type, description, 
+          uploaded_by, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+        RETURNING *
+      `, [
+        req.body.invoiceNumber,
+        req.body.vendorName,
+        req.body.vendorNumber,
+        new Date(req.body.invoiceDate),
+        req.body.invoiceAmount,
+        new Date(req.body.dueDate),
+        req.body.vin,
+        req.body.invoiceType,
+        req.body.description + (req.body.imageUrl ? ` - Image: ${req.body.imageUrl}` : ''),
+        req.body.uploadedBy || 1,
+        req.body.status || 'pending_entry'
+      ]);
+    }
+    
     client.release();
     
     console.log('Invoice created in database:', result.rows[0]);
