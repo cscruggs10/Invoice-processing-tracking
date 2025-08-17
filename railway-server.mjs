@@ -264,25 +264,77 @@ app.get('/api/setup-db', async (req, res) => {
   }
 });
 
-// Simple upload handler
-app.post('/api/upload-stream', (req, res) => {
-  console.log('Upload POST endpoint hit at:', new Date().toISOString());
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
+// Real upload handler with Cloudinary
+app.post('/api/upload-stream', async (req, res) => {
+  console.log('Upload endpoint hit at:', new Date().toISOString());
   
-  // Just respond immediately without any async operations
-  res.json({
-    id: Date.now(),
-    filename: 'mock-upload',
-    originalName: 'test.jpg',
-    mimeType: 'image/jpeg',
-    fileSize: 1000,
-    filePath: 'https://via.placeholder.com/150',
-    uploadedBy: 1,
-    uploadedAt: new Date().toISOString(),
-  });
-  
-  console.log('Mock upload response sent');
+  try {
+    // Import Cloudinary
+    const { v2: cloudinary } = await import('cloudinary');
+    
+    // Configure Cloudinary
+    cloudinary.config({
+      cloud_name: 'dcpy2x17s',
+      api_key: '898359299891889',
+      api_secret: 'UyIHA__rvf0D3SYtEK9IhkviMAY'
+    });
+    
+    // Parse the form data
+    const form = formidable({
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      keepExtensions: true,
+    });
+    
+    const [fields, files] = await form.parse(req);
+    const file = files.file?.[0];
+    
+    if (!file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    
+    console.log('Uploading to Cloudinary:', file.originalFilename);
+    
+    // Upload to Cloudinary using stream
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'Invoice-uploads',
+        resource_type: 'auto',
+      },
+      (error, result) => {
+        if (error) {
+          console.error('Cloudinary error:', error);
+          return res.status(500).json({ 
+            message: 'Upload failed', 
+            error: error.message 
+          });
+        }
+        
+        console.log('Upload successful:', result.public_id);
+        
+        // Return success response
+        res.json({
+          id: Date.now(),
+          filename: result.public_id,
+          originalName: file.originalFilename,
+          mimeType: file.mimetype,
+          fileSize: result.bytes,
+          filePath: result.secure_url, // This is the Cloudinary URL
+          uploadedBy: 1,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+    );
+    
+    // Stream the file to Cloudinary
+    fs.createReadStream(file.filepath).pipe(uploadStream);
+    
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ 
+      message: 'Upload failed', 
+      error: error.message 
+    });
+  }
 });
 
 // Real invoice endpoints with database

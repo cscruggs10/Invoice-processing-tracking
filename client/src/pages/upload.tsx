@@ -20,23 +20,27 @@ export default function Upload() {
       for (const file of files) {
         console.log('Processing file:', file.name);
         
-        // Skip upload for now, just create invoice directly
-        const uploadedFile = {
-          id: Date.now(),
-          filename: file.name,
-          originalName: file.name,
-          mimeType: file.type,
-          fileSize: file.size,
-          filePath: 'placeholder-url',
-          uploadedBy: 1,
-          uploadedAt: new Date().toISOString(),
-        };
+        // Create FormData for real upload
+        const formData = new FormData();
+        formData.append('file', file);
         
-        console.log('Skipping upload, creating invoice directly');
+        // Upload to our API which will upload to Cloudinary
+        const uploadResponse = await fetch('/api/upload-stream', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.message || 'Upload failed');
+        }
+        
+        const uploadedFile = await uploadResponse.json();
+        console.log('File uploaded to Cloudinary:', uploadedFile.filePath);
         
         console.log("File uploaded successfully:", uploadedFile);
         
-        // Create placeholder invoice for data entry
+        // Create placeholder invoice for data entry with Cloudinary URL
         const invoiceResponse = await fetch('/api/invoices', {
           method: 'POST',
           headers: {
@@ -51,7 +55,7 @@ export default function Upload() {
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
             vin: "PENDING",
             invoiceType: "Parts",
-            description: `Uploaded file: ${file.name}`,
+            description: `Uploaded file: ${file.name} - Image URL: ${uploadedFile.filePath}`,
             uploadedBy: 1,
             status: "pending_entry"
           }),
