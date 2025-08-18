@@ -240,8 +240,8 @@ export function InvoiceEntryForm({ onSuccess, onCancel }: InvoiceEntryFormProps)
               <SelectValue placeholder="Select invoice type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Charge">Charge</SelectItem>
-              <SelectItem value="Credit Memo">Credit Memo</SelectItem>
+              <SelectItem value="Invoice">Invoice</SelectItem>
+              <SelectItem value="Credit">Credit</SelectItem>
             </SelectContent>
           </Select>
           {errors.invoiceType && (

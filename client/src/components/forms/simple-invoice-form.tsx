@@ -218,8 +218,8 @@ export function SimpleInvoiceForm({ onSuccess, onCancel, existingInvoice }: Simp
               <SelectValue placeholder="Select invoice type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Charge">Charge</SelectItem>
-              <SelectItem value="Credit Memo">Credit Memo</SelectItem>
+              <SelectItem value="Invoice">Invoice</SelectItem>
+              <SelectItem value="Credit">Credit</SelectItem>
             </SelectContent>
           </Select>
           {form.formState.errors.invoiceType && (

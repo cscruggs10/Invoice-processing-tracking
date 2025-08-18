@@ -493,6 +493,94 @@ app.get('/api/invoices', async (req, res) => {
   }
 });
 
+// Vendors API endpoints
+app.get('/api/vendors', async (req, res) => {
+  try {
+    if (!pool) {
+      return res.json([]);
+    }
+    
+    const client = await pool.connect();
+    
+    // Build query based on parameters
+    let query = 'SELECT * FROM vendors WHERE 1=1';
+    const params = [];
+    let paramCount = 0;
+    
+    // Filter by active status if requested
+    if (req.query.active === 'true') {
+      paramCount++;
+      query += ` AND is_active = $${paramCount}`;
+      params.push(true);
+    }
+    
+    // Search by vendor name or number
+    if (req.query.search) {
+      paramCount++;
+      query += ` AND (vendor_name ILIKE $${paramCount} OR vendor_number ILIKE $${paramCount})`;
+      params.push(`%${req.query.search}%`);
+    }
+    
+    query += ' ORDER BY vendor_name ASC';
+    
+    const result = await client.query(query, params);
+    client.release();
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching vendors:', error);
+    res.status(500).json({ error: 'Failed to fetch vendors' });
+  }
+});
+
+// Setup vendors table
+app.get('/api/setup-vendors', async (req, res) => {
+  try {
+    if (!pool) {
+      return res.status(503).json({ error: 'No database connection' });
+    }
+    
+    const client = await pool.connect();
+    
+    // Create vendors table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS vendors (
+        id SERIAL PRIMARY KEY,
+        vendor_number TEXT NOT NULL UNIQUE,
+        vendor_name TEXT NOT NULL,
+        address TEXT,
+        city TEXT,
+        state TEXT,
+        zip_code TEXT,
+        phone TEXT,
+        gl_account_nbr TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Insert sample vendors
+    await client.query(`
+      INSERT INTO vendors (vendor_number, vendor_name, is_active)
+      VALUES 
+        ('1-800-Radiator', '1-800-Radiator & A/C', true),
+        ('Autozone', 'AutoZone', true),
+        ('OReilly', 'O''Reilly Auto Parts', true),
+        ('NAPA', 'NAPA Auto Parts', true),
+        ('AdvanceAuto', 'Advance Auto Parts', true)
+      ON CONFLICT (vendor_number) DO NOTHING
+    `);
+    
+    client.release();
+    
+    res.json({ status: 'Vendors table setup completed' });
+  } catch (error) {
+    console.error('Error setting up vendors:', error);
+    res.status(500).json({ error: 'Failed to setup vendors', details: error.message });
+  }
+});
+
 app.get('/api/data-entry-queue', async (req, res) => {
   try {
     if (!pool) {
