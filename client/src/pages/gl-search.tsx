@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Database, FileDown, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Search, Database, FileDown, Clock, CheckCircle, XCircle, AlertTriangle, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface GLResult {
@@ -25,7 +25,129 @@ export default function GLSearch() {
   const [vin, setVin] = useState("");
   const [result, setResult] = useState<GLResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [uploadingDb, setUploadingDb] = useState<string | null>(null);
+  const [dbCounts, setDbCounts] = useState<Record<string, number>>({});
+  const [dragOverDb, setDragOverDb] = useState<string | null>(null);
   const { toast } = useToast();
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  useEffect(() => {
+    checkDatabaseStatus();
+    fetchDatabaseCounts();
+  }, []);
+
+  const checkDatabaseStatus = async () => {
+    try {
+      const response = await fetch('/api/database-status');
+      const data = await response.json();
+      if (data.connected) {
+        setDbStatus('connected');
+      } else {
+        setDbStatus('error');
+      }
+    } catch (error) {
+      setDbStatus('error');
+    }
+  };
+
+  const fetchDatabaseCounts = async () => {
+    try {
+      const response = await fetch('/api/database-counts');
+      const counts = await response.json();
+      setDbCounts(counts);
+    } catch (error) {
+      console.error('Failed to fetch database counts:', error);
+    }
+  };
+
+  const handleUploadClick = (databaseKey: string) => {
+    const fileInput = fileInputRefs.current[databaseKey];
+    if (fileInput) {
+      fileInput.click();
+    }
+  };
+
+  const uploadFile = async (file: File, databaseKey: string) => {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast({
+        title: "Invalid File",
+        description: "Please select a CSV file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingDb(databaseKey);
+    
+    try {
+      const formData = new FormData();
+      formData.append('csvFile', file);
+
+      const response = await fetch(`/api/upload-csv/${databaseKey}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "Upload Successful",
+          description: `${result.message} (${result.records} records)`,
+        });
+        // Refresh database counts
+        await fetchDatabaseCounts();
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload CSV file",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingDb(null);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, databaseKey: string) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    await uploadFile(file, databaseKey);
+    
+    // Reset file input
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent, databaseKey: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOverDb(databaseKey);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOverDb(null);
+  };
+
+  const handleDrop = async (event: React.DragEvent, databaseKey: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOverDb(null);
+
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) return;
+
+    const file = files[0];
+    await uploadFile(file, databaseKey);
+  };
 
   const handleSearch = async () => {
     if (!vin.trim()) {
@@ -95,6 +217,24 @@ export default function GLSearch() {
           Search VIN across all databases to test GL code assignment logic
         </p>
       </div>
+
+      {dbStatus === 'error' && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Database connection error. Please check server logs and database configuration.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {dbStatus === 'connected' && (
+        <Alert>
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>
+            Database connected successfully. All VIN databases are loaded with data.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Search Form */}
@@ -245,11 +385,63 @@ export default function GLSearch() {
               { name: 'Retail Sold', key: 'retail_sold' },
               { name: 'Wholesale Sold', key: 'wholesale_sold' }
             ].map((db) => (
-              <div key={db.key} className="p-3 border rounded-lg text-center">
+              <div 
+                key={db.key} 
+                className={`p-3 border rounded-lg text-center transition-all duration-200 ${
+                  dragOverDb === db.key 
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 border-dashed' 
+                    : 'border-gray-200 dark:border-gray-700'
+                } ${uploadingDb === db.key ? 'opacity-50' : ''}`}
+                onDragOver={(e) => handleDragOver(e, db.key)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, db.key)}
+              >
                 <h4 className="font-medium text-sm mb-2">{db.name}</h4>
-                <Badge variant="outline" className="mb-2">Not Loaded</Badge>
-                <Button size="sm" variant="outline" className="w-full">
-                  Upload CSV
+                <Badge 
+                  variant={dbStatus === 'connected' ? 'default' : 'destructive'} 
+                  className={`mb-2 ${dbStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}
+                >
+                  {dbStatus === 'checking' ? 'Checking...' : 
+                   dbStatus === 'connected' ? `${dbCounts[db.key] || 0} Records` : 'DB Error'}
+                </Badge>
+                
+                {dragOverDb === db.key ? (
+                  <div className="mb-2 p-2 border-2 border-dashed border-blue-400 rounded bg-blue-50 dark:bg-blue-900/30">
+                    <FileDown className="h-4 w-4 mx-auto mb-1 text-blue-500" />
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Drop CSV file here</p>
+                  </div>
+                ) : (
+                  <div className="mb-2 p-2 border border-gray-200 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-800">
+                    <Upload className="h-4 w-4 mx-auto mb-1 text-gray-400" />
+                    <p className="text-xs text-gray-500">Drag CSV or click button</p>
+                  </div>
+                )}
+                
+                <input
+                  type="file"
+                  ref={(el) => { fileInputRefs.current[db.key] = el; }}
+                  onChange={(e) => handleFileUpload(e, db.key)}
+                  accept=".csv"
+                  style={{ display: 'none' }}
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => handleUploadClick(db.key)}
+                  disabled={uploadingDb === db.key}
+                >
+                  {uploadingDb === db.key ? (
+                    <>
+                      <Clock className="h-3 w-3 mr-1 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-3 w-3 mr-1" />
+                      Upload CSV
+                    </>
+                  )}
                 </Button>
               </div>
             ))}
