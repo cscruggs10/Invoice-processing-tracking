@@ -28,12 +28,17 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
   const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // First check if invoice has Cloudinary URL in description
-    const descriptionImageMatch = invoice.description?.match(/Image:\s*(https:\/\/res\.cloudinary\.com[^\s]+)/);
-    if (descriptionImageMatch) {
-      setCloudinaryUrl(descriptionImageMatch[1]);
-      setLoading(false);
-      return;
+    // Extract Cloudinary URL from description - simplified approach
+    if (invoice.description?.includes('https://res.cloudinary.com')) {
+      const urlStart = invoice.description.indexOf('https://res.cloudinary.com');
+      const urlEnd = invoice.description.indexOf('.jpg', urlStart) + 4;
+      if (urlEnd > urlStart) {
+        const url = invoice.description.substring(urlStart, urlEnd);
+        console.log('Extracted Cloudinary URL:', url);
+        setCloudinaryUrl(url);
+        setLoading(false);
+        return;
+      }
     }
 
     // Check if invoice has image_url field (for future use when column is added)
