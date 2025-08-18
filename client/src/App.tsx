@@ -18,6 +18,7 @@ import ImportVerification from "@/pages/import-verification";
 import ImportFailures from "@/pages/import-failures";
 import Debug from "@/pages/debug";
 import SimpleUpload from "@/pages/simple-upload";
+import GLSearch from "@/pages/gl-search";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/import-verification" component={ImportVerification} />
       <Route path="/import-failures" component={ImportFailures} />
       <Route path="/search" component={Search} />
+      <Route path="/gl-search" component={GLSearch} />
       <Route path="/debug" component={Debug} />
       <Route path="/simple-upload" component={SimpleUpload} />
       <Route component={NotFound} />

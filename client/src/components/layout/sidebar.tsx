@@ -12,7 +12,8 @@ import {
   FileText,
   ClipboardCheck,
   AlertTriangle,
-  Brain
+  Brain,
+  Database
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useDashboardStats, useInvoices } from "@/hooks/use-invoices";
@@ -74,6 +75,7 @@ const navigationItems: NavigationItem[] = [
     getCount: (stats, invoices) => invoices?.filter((inv: any) => inv.status === "import_failed").length || 0
   },
   { href: "/search", label: "Search Filed Invoices", icon: Search },
+  { href: "/gl-search", label: "GL Code Search", icon: Database },
   { href: "/debug", label: "Debug Logs", icon: Brain },
 ];
 

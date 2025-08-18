@@ -641,6 +641,267 @@ app.get('/api/vendors/search/:term', async (req, res) => {
   }
 });
 
+// Setup all VIN databases for GL logic
+app.get('/api/setup-vin-databases', async (req, res) => {
+  try {
+    if (!pool) {
+      return res.status(503).json({ error: 'No database connection' });
+    }
+    
+    const client = await pool.connect();
+    
+    console.log('Creating VIN database tables...');
+    
+    // 1. Wholesale Inventory (GL: 1400, Wholesale export)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wholesale_inventory (
+        id SERIAL PRIMARY KEY,
+        stock_number TEXT NOT NULL,
+        vin_last_6 TEXT NOT NULL,
+        vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+        uploaded_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(stock_number, vin_last_6)
+      )
+    `);
+    
+    // 2. Retail Inventory (GL: 1400, Retail export)  
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS retail_inventory (
+        id SERIAL PRIMARY KEY,
+        stock_number TEXT NOT NULL,
+        vin_last_6 TEXT NOT NULL,
+        vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+        uploaded_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(stock_number, vin_last_6)
+      )
+    `);
+    
+    // 3. Active Account (GL: 1420, Retail export)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS active_accounts (
+        id SERIAL PRIMARY KEY,
+        stock_number TEXT NOT NULL,
+        full_vin TEXT NOT NULL,
+        vin_last_6 TEXT NOT NULL,
+        vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+        uploaded_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(stock_number, full_vin)
+      )
+    `);
+    
+    // 4. Retail Sold (GL: 5180.3, Retail export)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS retail_sold (
+        id SERIAL PRIMARY KEY,
+        stock_number TEXT NOT NULL,
+        date_sold DATE NOT NULL,
+        vin_last_6 TEXT NOT NULL,
+        vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+        uploaded_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(stock_number, date_sold, vin_last_6)
+      )
+    `);
+    
+    // 5. Wholesale Sold (GL: 5180.x based on location, Wholesale export)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wholesale_sold (
+        id SERIAL PRIMARY KEY,
+        stock_number TEXT NOT NULL,
+        location TEXT NOT NULL, -- CVILLE WHOLESALE, OB WHOLESALE, RENTAL
+        date_sold DATE NOT NULL,
+        vin_last_6 TEXT NOT NULL,
+        vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+        gl_code TEXT NOT NULL, -- 5180.9, 5180.7, 5180.8
+        uploaded_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(stock_number, location, date_sold, vin_last_6)
+      )
+    `);
+    
+    // Create indexes for fast VIN lookups
+    await client.query('CREATE INDEX IF NOT EXISTS idx_wholesale_inventory_vin ON wholesale_inventory(vin_padded)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_retail_inventory_vin ON retail_inventory(vin_padded)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_active_accounts_vin ON active_accounts(vin_padded)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_retail_sold_vin ON retail_sold(vin_padded, date_sold DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_wholesale_sold_vin ON wholesale_sold(vin_padded, date_sold DESC)');
+    
+    client.release();
+    
+    console.log('VIN database tables created successfully');
+    res.json({ 
+      status: 'VIN database tables created successfully',
+      tables: [
+        'wholesale_inventory',
+        'retail_inventory', 
+        'active_accounts',
+        'retail_sold',
+        'wholesale_sold'
+      ]
+    });
+  } catch (error) {
+    console.error('Error setting up VIN databases:', error);
+    res.status(500).json({ error: 'Failed to setup VIN databases', details: error.message });
+  }
+});
+
+// VIN padding utility function
+function padVin(vin) {
+  if (!vin) return null;
+  // Take last 6 characters and pad with leading zeros if needed
+  const last6 = vin.toString().slice(-6);
+  return last6.padStart(6, '0');
+}
+
+// GL Lookup API - searches all VIN databases with priority logic
+app.get('/api/gl-lookup/:vin', async (req, res) => {
+  try {
+    if (!pool) {
+      return res.status(404).json({ error: 'No database connection' });
+    }
+    
+    const inputVin = req.params.vin;
+    const vinPadded = padVin(inputVin);
+    
+    if (!vinPadded) {
+      return res.status(400).json({ error: 'Invalid VIN provided' });
+    }
+    
+    const client = await pool.connect();
+    
+    console.log(`GL Lookup for VIN: ${inputVin} → Padded: ${vinPadded}`);
+    
+    // Priority 1: Check Wholesale Inventory (GL: 1400, Wholesale export)
+    const wholesaleInventory = await client.query(
+      'SELECT stock_number, vin_last_6, uploaded_at FROM wholesale_inventory WHERE vin_padded = $1',
+      [vinPadded]
+    );
+    
+    if (wholesaleInventory.rows.length > 0) {
+      client.release();
+      return res.json({
+        found: true,
+        database: 'wholesale_inventory',
+        gl_code: '1400',
+        export_file: 'wholesale',
+        priority: 1,
+        stock_number: wholesaleInventory.rows[0].stock_number,
+        details: wholesaleInventory.rows[0]
+      });
+    }
+    
+    // Priority 1: Check Retail Inventory (GL: 1400, Retail export)
+    const retailInventory = await client.query(
+      'SELECT stock_number, vin_last_6, uploaded_at FROM retail_inventory WHERE vin_padded = $1',
+      [vinPadded]
+    );
+    
+    if (retailInventory.rows.length > 0) {
+      client.release();
+      return res.json({
+        found: true,
+        database: 'retail_inventory',
+        gl_code: '1400',
+        export_file: 'retail',
+        priority: 1,
+        stock_number: retailInventory.rows[0].stock_number,
+        details: retailInventory.rows[0]
+      });
+    }
+    
+    // Priority 2: Check Active Account (GL: 1420, Retail export)
+    const activeAccount = await client.query(
+      'SELECT stock_number, full_vin, uploaded_at FROM active_accounts WHERE vin_padded = $1',
+      [vinPadded]
+    );
+    
+    if (activeAccount.rows.length > 0) {
+      client.release();
+      return res.json({
+        found: true,
+        database: 'active_account',
+        gl_code: '1420',
+        export_file: 'retail',
+        priority: 2,
+        stock_number: activeAccount.rows[0].stock_number,
+        details: activeAccount.rows[0]
+      });
+    }
+    
+    // Priority 3: Check Sold databases - get most recent
+    const retailSold = await client.query(
+      'SELECT stock_number, date_sold, uploaded_at FROM retail_sold WHERE vin_padded = $1 ORDER BY date_sold DESC LIMIT 1',
+      [vinPadded]
+    );
+    
+    const wholesaleSold = await client.query(
+      'SELECT stock_number, location, date_sold, gl_code, uploaded_at FROM wholesale_sold WHERE vin_padded = $1 ORDER BY date_sold DESC LIMIT 1',
+      [vinPadded]
+    );
+    
+    // Compare dates if both exist
+    let mostRecentSold = null;
+    if (retailSold.rows.length > 0 && wholesaleSold.rows.length > 0) {
+      const retailDate = new Date(retailSold.rows[0].date_sold);
+      const wholesaleDate = new Date(wholesaleSold.rows[0].date_sold);
+      
+      if (retailDate >= wholesaleDate) {
+        mostRecentSold = {
+          database: 'retail_sold',
+          gl_code: '5180.3',
+          export_file: 'retail',
+          details: retailSold.rows[0]
+        };
+      } else {
+        mostRecentSold = {
+          database: 'wholesale_sold',
+          gl_code: wholesaleSold.rows[0].gl_code,
+          export_file: 'wholesale',
+          details: wholesaleSold.rows[0]
+        };
+      }
+    } else if (retailSold.rows.length > 0) {
+      mostRecentSold = {
+        database: 'retail_sold',
+        gl_code: '5180.3',
+        export_file: 'retail',
+        details: retailSold.rows[0]
+      };
+    } else if (wholesaleSold.rows.length > 0) {
+      mostRecentSold = {
+        database: 'wholesale_sold',
+        gl_code: wholesaleSold.rows[0].gl_code,
+        export_file: 'wholesale',
+        details: wholesaleSold.rows[0]
+      };
+    }
+    
+    client.release();
+    
+    if (mostRecentSold) {
+      return res.json({
+        found: true,
+        database: mostRecentSold.database,
+        gl_code: mostRecentSold.gl_code,
+        export_file: mostRecentSold.export_file,
+        priority: 3,
+        stock_number: mostRecentSold.details.stock_number,
+        details: mostRecentSold.details
+      });
+    }
+    
+    // No match found
+    res.json({
+      found: false,
+      searched_vin: inputVin,
+      padded_vin: vinPadded,
+      message: 'VIN not found in any database'
+    });
+    
+  } catch (error) {
+    console.error('Error in GL lookup:', error);
+    res.status(500).json({ error: 'GL lookup failed', details: error.message });
+  }
+});
+
 app.get('/api/data-entry-queue', async (req, res) => {
   try {
     if (!pool) {
