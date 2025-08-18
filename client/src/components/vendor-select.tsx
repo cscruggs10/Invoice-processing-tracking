@@ -35,17 +35,24 @@ export function VendorSelect({ value, onSelect, placeholder = "Select vendor..."
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const { data: vendors = [], isLoading } = useQuery({
-    queryKey: ["/api/vendors", { search, active: true }],
+  const { data: allVendors = [], isLoading } = useQuery({
+    queryKey: ["/api/vendors", { active: true }],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (search) params.append("search", search);
       params.append("active", "true");
       
       const response = await fetch(`/api/vendors?${params}`);
       if (!response.ok) throw new Error("Failed to fetch vendors");
       return response.json() as Vendor[];
     },
+  });
+
+  // Filter vendors based on search term
+  const vendors = allVendors.filter(vendor => {
+    if (!search) return true; // Show all vendors when no search term
+    const searchLower = search.toLowerCase();
+    return vendor.vendor_name.toLowerCase().includes(searchLower) || 
+           vendor.vendor_number.toLowerCase().includes(searchLower);
   });
 
   const selectedVendor = vendors.find(v => v.vendor_number === value);
