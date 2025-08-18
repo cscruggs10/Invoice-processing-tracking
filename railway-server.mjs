@@ -557,9 +557,12 @@ app.get('/api/setup-vendors', async (req, res) => {
     const client = await pool.connect();
     
     console.log('Creating vendors table...');
+    // Drop and recreate table to ensure clean structure
+    await client.query('DROP TABLE IF EXISTS vendors CASCADE');
+    
     // Create simplified vendors table (only vendor_number, vendor_name, is_active)
     await client.query(`
-      CREATE TABLE IF NOT EXISTS vendors (
+      CREATE TABLE vendors (
         id SERIAL PRIMARY KEY,
         vendor_number TEXT NOT NULL UNIQUE,
         vendor_name TEXT NOT NULL,
@@ -569,8 +572,7 @@ app.get('/api/setup-vendors', async (req, res) => {
       )
     `);
     
-    console.log('Clearing existing vendors...');
-    await client.query('DELETE FROM vendors');
+    // No need to clear since we dropped the table
     
     console.log('Inserting all 754 unique vendors from CSV files...');
     
@@ -609,6 +611,33 @@ app.get('/api/setup-vendors', async (req, res) => {
   } catch (error) {
     console.error('Error setting up vendors:', error);
     res.status(500).json({ error: 'Failed to setup vendors', details: error.message });
+  }
+});
+
+// Test vendor search endpoint  
+app.get('/api/vendors/search/:term', async (req, res) => {
+  try {
+    if (!pool) {
+      return res.json([]);
+    }
+    
+    const client = await pool.connect();
+    const searchTerm = req.params.term;
+    
+    const result = await client.query(`
+      SELECT id, vendor_number, vendor_name, is_active 
+      FROM vendors 
+      WHERE vendor_name ILIKE $1 OR vendor_number ILIKE $1
+      ORDER BY vendor_name ASC 
+      LIMIT 10
+    `, [`%${searchTerm}%`]);
+    
+    client.release();
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error searching vendors:', error);
+    res.json([]);
   }
 });
 
