@@ -25,8 +25,25 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
+  const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    // First check if invoice has Cloudinary URL in description
+    const descriptionImageMatch = invoice.description?.match(/Image:\s*(https:\/\/res\.cloudinary\.com[^\s]+)/);
+    if (descriptionImageMatch) {
+      setCloudinaryUrl(descriptionImageMatch[1]);
+      setLoading(false);
+      return;
+    }
+
+    // Check if invoice has image_url field (for future use when column is added)
+    if ((invoice as any).image_url) {
+      setCloudinaryUrl((invoice as any).image_url);
+      setLoading(false);
+      return;
+    }
+
+    // Fallback to original file fetching logic
     const fetchFiles = async () => {
       try {
         const response = await fetch(`/api/invoices/${invoice.id}/files`);
@@ -45,7 +62,7 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
     };
 
     fetchFiles();
-  }, [invoice.id]);
+  }, [invoice.id, invoice.description]);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
@@ -79,7 +96,7 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
     );
   }
 
-  if (files.length === 0) {
+  if (files.length === 0 && !cloudinaryUrl) {
     return (
       <Card>
         <CardHeader>
@@ -130,7 +147,36 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {selectedFile && (
+        {/* Display Cloudinary image if available */}
+        {cloudinaryUrl ? (
+          <div className="space-y-4">
+            <div className="border rounded-lg overflow-hidden bg-white">
+              <div className="flex justify-center bg-gray-50 p-4" style={{ maxHeight: '700px', overflow: 'auto' }}>
+                <img
+                  src={cloudinaryUrl}
+                  alt="Invoice Document"
+                  style={{ 
+                    transform: `scale(${zoom})`,
+                    maxWidth: '100%',
+                    height: 'auto',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  className="shadow-lg"
+                />
+              </div>
+            </div>
+            
+            {/* Instructions for better viewing */}
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <p className="font-medium mb-1">📋 Viewing Tips:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>Use + and - buttons to zoom in/out for better detail</li>
+                <li>Scroll to see different parts when zoomed</li>
+                <li>Click "Fit" to see more of the document at once</li>
+              </ul>
+            </div>
+          </div>
+        ) : selectedFile && (
           <div className="space-y-4">
             {/* Simple document viewer */}
             <div className="border rounded-lg overflow-hidden bg-white">
