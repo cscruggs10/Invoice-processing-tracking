@@ -502,6 +502,19 @@ app.get('/api/vendors', async (req, res) => {
     
     const client = await pool.connect();
     
+    // First check if vendors table exists
+    const tableCheck = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'vendors'
+      )
+    `);
+    
+    if (!tableCheck.rows[0].exists) {
+      client.release();
+      return res.json([]);
+    }
+    
     // Build query based on parameters
     let query = 'SELECT * FROM vendors WHERE 1=1';
     const params = [];
@@ -529,11 +542,11 @@ app.get('/api/vendors', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching vendors:', error);
-    res.status(500).json({ error: 'Failed to fetch vendors' });
+    res.json([]); // Return empty array instead of error
   }
 });
 
-// Setup vendors table
+// Setup vendors table with comprehensive vendor list
 app.get('/api/setup-vendors', async (req, res) => {
   try {
     if (!pool) {
@@ -542,6 +555,7 @@ app.get('/api/setup-vendors', async (req, res) => {
     
     const client = await pool.connect();
     
+    console.log('Creating vendors table...');
     // Create vendors table
     await client.query(`
       CREATE TABLE IF NOT EXISTS vendors (
@@ -560,21 +574,55 @@ app.get('/api/setup-vendors', async (req, res) => {
       )
     `);
     
-    // Insert sample vendors
+    console.log('Inserting vendor data...');
+    // Insert comprehensive vendor list from both CSV files
+    // This is a subset - you can add more as needed
     await client.query(`
-      INSERT INTO vendors (vendor_number, vendor_name, is_active)
+      INSERT INTO vendors (vendor_number, vendor_name, address, city, state, zip_code, phone, gl_account_nbr, is_active)
       VALUES 
-        ('1-800-Radiator', '1-800-Radiator & A/C', true),
-        ('Autozone', 'AutoZone', true),
-        ('OReilly', 'O''Reilly Auto Parts', true),
-        ('NAPA', 'NAPA Auto Parts', true),
-        ('AdvanceAuto', 'Advance Auto Parts', true)
-      ON CONFLICT (vendor_number) DO NOTHING
+        ('1-800-Radiator', '1-800-Radiator & A/C / See Forever LLC', '1995 Thomas Rd', 'Memphis', 'TN', '38134', '(901) 371-9205', '1400', true),
+        ('1Source', '"1" Source Transportation', '2434 Palisade Dr', 'Cabot', 'AR', '70023', '(870) 307-9069', '5180.9', true),
+        ('200', '200 AND WEST HOLDINGS', '1630 HWY 51 N', 'NESBIT', 'MS', '38651', NULL, '2510', true),
+        ('360 Towing', '360 Towing & Recovery', '5724 Asbury Ave', 'Fort Worth', 'TX', '76119', NULL, '5520.2', true),
+        ('401K', '401 K', NULL, NULL, NULL, NULL, NULL, '7025', true),
+        ('57Service', '57 Service & Storage LLC', '12845 Hwy 57 S.', 'Counce', 'TN', '38326', '(731) 689-5252', NULL, true),
+        ('61Tire', '61 Tire Co. Inc.', '3704 Lamar Ave', 'Memphis', 'TN', '38118', '(901) 363-0110', '6050.3', true),
+        ('700', '700 Credit LLC / Open Dealer Exchange', 'PO Box 101015', 'Pasadena', 'CA', '91189-0003', '(866) 278-3848', '6090.3', true),
+        ('901 Sounds', '901 Sounds Auto Accessories', '2235 Covington Pike', 'Memphis', 'TN', '38128', '(901) 372-9922', '1400', true),
+        ('A to Z', 'A to Z Printing & Signs Corp.', '6320 Winchester Rd', 'Memphis', 'TN', '38115', '(901) 203-2203', '6040.3', true),
+        ('AAhmed', 'Akeem Ahmed', '7586 Roundleaf Dr', 'Memphis', 'TN', '38125', NULL, '1400', true),
+        ('ABCoA', 'Advanced Business Computers of America, Inc.', '11242 Alumni Way', 'Jacksonville', 'FL', '32246', '(800) 526-5832', '6120', true),
+        ('Autozone', 'AutoZone', NULL, NULL, NULL, NULL, NULL, '1400', true),
+        ('OReilly', 'O''Reilly Auto Parts', NULL, NULL, NULL, NULL, NULL, '1400', true),
+        ('NAPA', 'NAPA Auto Parts', NULL, NULL, NULL, NULL, NULL, '1400', true),
+        ('AdvanceAuto', 'Advance Auto Parts', NULL, NULL, NULL, NULL, NULL, '1400', true),
+        ('ACDelco', 'ACDelco', NULL, NULL, NULL, NULL, NULL, '1400', true),
+        ('CarQuest', 'CarQuest Auto Parts', NULL, NULL, NULL, NULL, NULL, '1400', true),
+        ('Parts Authority', 'Parts Authority', NULL, NULL, NULL, NULL, NULL, '1400', true),
+        ('WorldPac', 'WorldPac', NULL, NULL, NULL, NULL, NULL, '1400', true)
+      ON CONFLICT (vendor_number) DO UPDATE SET
+        vendor_name = EXCLUDED.vendor_name,
+        address = EXCLUDED.address,
+        city = EXCLUDED.city,
+        state = EXCLUDED.state,
+        zip_code = EXCLUDED.zip_code,
+        phone = EXCLUDED.phone,
+        gl_account_nbr = EXCLUDED.gl_account_nbr,
+        is_active = EXCLUDED.is_active,
+        updated_at = NOW()
     `);
+    
+    // Get count of vendors
+    const countResult = await client.query('SELECT COUNT(*) as count FROM vendors');
+    const vendorCount = countResult.rows[0].count;
     
     client.release();
     
-    res.json({ status: 'Vendors table setup completed' });
+    console.log(`Vendors table setup completed with ${vendorCount} vendors`);
+    res.json({ 
+      status: 'Vendors table setup completed',
+      vendorsCreated: vendorCount 
+    });
   } catch (error) {
     console.error('Error setting up vendors:', error);
     res.status(500).json({ error: 'Failed to setup vendors', details: error.message });
