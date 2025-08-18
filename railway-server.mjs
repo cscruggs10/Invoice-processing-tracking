@@ -38,10 +38,15 @@ try {
     pool.connect()
       .then(client => {
         console.log('✅ Database connected successfully');
-        return client.query('SELECT NOW()');
-      })
-      .then(() => {
-        console.log('✅ Database query test successful');
+        client.query('SELECT NOW()')
+          .then(() => {
+            console.log('✅ Database query test successful');
+            client.release();
+          })
+          .catch(err => {
+            console.error('❌ Database query failed:', err);
+            client.release();
+          });
       })
       .catch(err => {
         console.error('❌ Database connection failed:', err);
@@ -97,7 +102,7 @@ app.get('/api/debug', (req, res) => {
         PORT: process.env.PORT || 'not_set',
         hasDB: !!process.env.DATABASE_URL,
         dbUrl: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
-        sqlObject: !!sql
+        poolObject: !!pool
       },
       timestamp: new Date().toISOString()
     });
@@ -113,10 +118,12 @@ app.get('/api/health', async (req, res) => {
     let dbError = null;
     
     if (process.env.DATABASE_URL) {
-      if (sql) {
+      if (pool) {
         try {
           // Test database connection
-          await sql`SELECT 1 as test`;
+          const client = await pool.connect();
+          await client.query('SELECT 1 as test');
+          client.release();
           dbStatus = 'connected';
         } catch (err) {
           dbStatus = 'error';
