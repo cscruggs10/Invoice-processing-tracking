@@ -902,6 +902,158 @@ app.get('/api/gl-lookup/:vin', async (req, res) => {
   }
 });
 
+// Load sample data from CSV files into VIN databases
+app.get('/api/load-sample-vin-data', async (req, res) => {
+  try {
+    if (!pool) {
+      return res.status(503).json({ error: 'No database connection' });
+    }
+    
+    const client = await pool.connect();
+    
+    console.log('Loading sample VIN data from CSV files...');
+    
+    // Clear existing data
+    await client.query('DELETE FROM wholesale_inventory');
+    await client.query('DELETE FROM retail_inventory');  
+    await client.query('DELETE FROM active_accounts');
+    await client.query('DELETE FROM retail_sold');
+    await client.query('DELETE FROM wholesale_sold');
+    
+    // 1. Load Wholesale Inventory
+    console.log('Loading Wholesale Inventory...');
+    const wholesaleInventoryData = [
+      { stock: '11650', vin: '231614' },
+      { stock: '11753', vin: '126487' },
+      { stock: '11816', vin: '113055' },
+      { stock: '11867', vin: '318881' },
+      { stock: '12043', vin: '167042' },
+      { stock: '12220', vin: '111677' },
+      { stock: '12346', vin: '614823' },
+      { stock: '12390', vin: '150741' },
+      { stock: '12418', vin: '139431' }
+    ];
+    
+    for (const item of wholesaleInventoryData) {
+      const vinPadded = padVin(item.vin);
+      await client.query(`
+        INSERT INTO wholesale_inventory (stock_number, vin_last_6, vin_padded)
+        VALUES ($1, $2, $3)
+      `, [item.stock, item.vin, vinPadded]);
+    }
+    
+    // 2. Load Retail Inventory  
+    console.log('Loading Retail Inventory...');
+    const retailInventoryData = [
+      { stock: '3361', vin: 'A85255' },
+      { stock: '6454R', vin: '206190' },
+      { stock: '5637R', vin: '368259' },
+      { stock: '5810R', vin: '136507' },
+      { stock: '6041', vin: '200251' },
+      { stock: '5854R', vin: '139513' },
+      { stock: '6729', vin: 'A91656' },
+      { stock: '6119R', vin: '118051' },
+      { stock: '6260R', vin: '215120' }
+    ];
+    
+    for (const item of retailInventoryData) {
+      const vinPadded = padVin(item.vin);
+      await client.query(`
+        INSERT INTO retail_inventory (stock_number, vin_last_6, vin_padded)
+        VALUES ($1, $2, $3)
+      `, [item.stock, item.vin, vinPadded]);
+    }
+    
+    // 3. Load Active Accounts
+    console.log('Loading Active Accounts...');
+    const activeAccountsData = [
+      { stock: '10056', fullVin: '1N6AD0ER7EN721441' },
+      { stock: '10080', fullVin: 'JHLRE38387C078501' },
+      { stock: '10156', fullVin: '3FA6P0LU5KR274615' },
+      { stock: '10157', fullVin: 'JTHBL46F875016896' },
+      { stock: '10246', fullVin: '1C4NJCBA2ED843563' },
+      { stock: '10273', fullVin: '2C3CDXBG4FH812995' },
+      { stock: '10278', fullVin: 'JHLRD68463C004484' },
+      { stock: '10281', fullVin: 'JTMWFREV9GJ073969' },
+      { stock: '102CC', fullVin: '1G1ZE5ST9GF334752' }
+    ];
+    
+    for (const item of activeAccountsData) {
+      const vinLast6 = item.fullVin.slice(-6);
+      const vinPadded = padVin(vinLast6);
+      await client.query(`
+        INSERT INTO active_accounts (stock_number, full_vin, vin_last_6, vin_padded)
+        VALUES ($1, $2, $3, $4)
+      `, [item.stock, item.fullVin, vinLast6, vinPadded]);
+    }
+    
+    // 4. Load Retail Sold
+    console.log('Loading Retail Sold...');
+    const retailSoldData = [
+      { stock: '7675R', dateSold: '2025-07-14', vin: '353864' },
+      { stock: '12192A', dateSold: '2025-07-15', vin: '592182' },
+      { stock: '7728R', dateSold: '2025-07-15', vin: '044111' },
+      { stock: '12267A', dateSold: '2025-07-16', vin: '126893' },
+      { stock: '7665R', dateSold: '2025-07-17', vin: '703660' },
+      { stock: '7712r', dateSold: '2025-07-17', vin: '034092' },
+      { stock: '7714R', dateSold: '2025-07-17', vin: '215441' },
+      { stock: '7717R', dateSold: '2025-07-17', vin: '156566' },
+      { stock: '7719R', dateSold: '2025-07-17', vin: '158980' }
+    ];
+    
+    for (const item of retailSoldData) {
+      const vinPadded = padVin(item.vin);
+      await client.query(`
+        INSERT INTO retail_sold (stock_number, date_sold, vin_last_6, vin_padded)
+        VALUES ($1, $2, $3, $4)
+      `, [item.stock, item.dateSold, item.vin, vinPadded]);
+    }
+    
+    // 5. Load Wholesale Sold
+    console.log('Loading Wholesale Sold...');
+    const wholesaleSoldData = [
+      { stock: '13182', location: 'OB WHOLESALE', dateSold: '2025-07-15', vin: 'A45302', glCode: '5180.7' },
+      { stock: '13183', location: 'CVILLE WHOLESALE', dateSold: '2025-07-15', vin: '107278', glCode: '5180.9' },
+      { stock: '13263', location: 'OB WHOLESALE', dateSold: '2025-07-15', vin: '501248', glCode: '5180.7' },
+      { stock: '970CC', location: 'CVILLE WHOLESALE', dateSold: '2025-07-15', vin: '213624', glCode: '5180.9' },
+      { stock: '13303', location: 'OB WHOLESALE', dateSold: '2025-07-15', vin: '010363', glCode: '5180.7' },
+      { stock: '13124', location: 'OB WHOLESALE', dateSold: '2025-07-16', vin: '319905', glCode: '5180.7' },
+      { stock: '13143', location: 'CVILLE WHOLESALE', dateSold: '2025-07-17', vin: '522263', glCode: '5180.9' },
+      { stock: '13147', location: 'CVILLE WHOLESALE', dateSold: '2025-07-17', vin: '327815', glCode: '5180.9' },
+      { stock: '13185', location: 'RENTAL', dateSold: '2025-07-17', vin: '204899', glCode: '5180.8' }
+    ];
+    
+    for (const item of wholesaleSoldData) {
+      const vinPadded = padVin(item.vin);
+      await client.query(`
+        INSERT INTO wholesale_sold (stock_number, location, date_sold, vin_last_6, vin_padded, gl_code)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [item.stock, item.location, item.dateSold, item.vin, vinPadded, item.glCode]);
+    }
+    
+    // Get counts
+    const counts = {
+      wholesale_inventory: (await client.query('SELECT COUNT(*) as count FROM wholesale_inventory')).rows[0].count,
+      retail_inventory: (await client.query('SELECT COUNT(*) as count FROM retail_inventory')).rows[0].count,
+      active_accounts: (await client.query('SELECT COUNT(*) as count FROM active_accounts')).rows[0].count,
+      retail_sold: (await client.query('SELECT COUNT(*) as count FROM retail_sold')).rows[0].count,
+      wholesale_sold: (await client.query('SELECT COUNT(*) as count FROM wholesale_sold')).rows[0].count
+    };
+    
+    client.release();
+    
+    console.log('Sample VIN data loaded successfully:', counts);
+    res.json({ 
+      status: 'Sample VIN data loaded successfully',
+      counts: counts,
+      message: 'Ready for GL testing with real CSV data'
+    });
+  } catch (error) {
+    console.error('Error loading sample VIN data:', error);
+    res.status(500).json({ error: 'Failed to load sample VIN data', details: error.message });
+  }
+});
+
 app.get('/api/data-entry-queue', async (req, res) => {
   try {
     if (!pool) {
