@@ -1293,46 +1293,51 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
   }
 });
 
-// Get database record counts
+// Get database record counts with last upload timestamps
 app.get('/api/database-counts', async (req, res) => {
   try {
     if (!pool) {
       // Return mock counts when no database
       return res.json({
-        wholesale_inventory: 0,
-        retail_inventory: 0, 
-        active_accounts: 0,
-        retail_sold: 0,
-        wholesale_sold: 0
+        wholesale_inventory: { count: 0, lastUpload: null },
+        retail_inventory: { count: 0, lastUpload: null }, 
+        active_accounts: { count: 0, lastUpload: null },
+        retail_sold: { count: 0, lastUpload: null },
+        wholesale_sold: { count: 0, lastUpload: null }
       });
     }
 
     const client = await pool.connect();
-    const counts = {};
+    const results = {};
     
     const databases = ['wholesale_inventory', 'retail_inventory', 'active_accounts', 'retail_sold', 'wholesale_sold'];
     
     for (const db of databases) {
       try {
-        const result = await client.query(`SELECT COUNT(*) as count FROM ${db}`);
-        counts[db] = parseInt(result.rows[0].count);
+        const countResult = await client.query(`SELECT COUNT(*) as count FROM ${db}`);
+        const timestampResult = await client.query(`SELECT MAX(uploaded_at) as last_upload FROM ${db}`);
+        
+        results[db] = {
+          count: parseInt(countResult.rows[0].count),
+          lastUpload: timestampResult.rows[0].last_upload
+        };
       } catch (err) {
-        counts[db] = 0; // Default to 0 if table doesn't exist
+        results[db] = { count: 0, lastUpload: null }; // Default if table doesn't exist
       }
     }
     
     client.release();
-    res.json(counts);
+    res.json(results);
 
   } catch (error) {
     console.error('Failed to get database counts:', error);
     // Return zeros on error
     res.json({
-      wholesale_inventory: 0,
-      retail_inventory: 0, 
-      active_accounts: 0,
-      retail_sold: 0,
-      wholesale_sold: 0
+      wholesale_inventory: { count: 0, lastUpload: null },
+      retail_inventory: { count: 0, lastUpload: null }, 
+      active_accounts: { count: 0, lastUpload: null },
+      retail_sold: { count: 0, lastUpload: null },
+      wholesale_sold: { count: 0, lastUpload: null }
     });
   }
 });

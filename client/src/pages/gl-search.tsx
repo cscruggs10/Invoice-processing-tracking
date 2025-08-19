@@ -27,7 +27,7 @@ export default function GLSearch() {
   const [loading, setLoading] = useState(false);
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [uploadingDb, setUploadingDb] = useState<string | null>(null);
-  const [dbCounts, setDbCounts] = useState<Record<string, number>>({});
+  const [dbCounts, setDbCounts] = useState<Record<string, { count: number; lastUpload: string | null }>>({});
   const [dragOverDb, setDragOverDb] = useState<string | null>(null);
   const [clearingDbs, setClearingDbs] = useState(false);
   const { toast } = useToast();
@@ -60,6 +60,12 @@ export default function GLSearch() {
     } catch (error) {
       console.error('Failed to fetch database counts:', error);
     }
+  };
+
+  const formatLastUpload = (lastUpload: string | null) => {
+    if (!lastUpload) return 'Never';
+    const date = new Date(lastUpload);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
   };
 
   const handleUploadClick = (databaseKey: string) => {
@@ -458,13 +464,20 @@ export default function GLSearch() {
                 onDrop={(e) => handleDrop(e, db.key)}
               >
                 <h4 className="font-medium text-sm mb-2">{db.name}</h4>
-                <Badge 
-                  variant={dbStatus === 'connected' ? 'default' : 'destructive'} 
-                  className={`mb-2 ${dbStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}
-                >
-                  {dbStatus === 'checking' ? 'Checking...' : 
-                   dbStatus === 'connected' ? `${dbCounts[db.key] || 0} Records` : 'DB Error'}
-                </Badge>
+                <div className="mb-2 space-y-1">
+                  <Badge 
+                    variant={dbStatus === 'connected' ? 'default' : 'destructive'} 
+                    className={`${dbStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}
+                  >
+                    {dbStatus === 'checking' ? 'Checking...' : 
+                     dbStatus === 'connected' ? `${dbCounts[db.key]?.count || 0} Records` : 'DB Error'}
+                  </Badge>
+                  {dbStatus === 'connected' && dbCounts[db.key] && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Last: {formatLastUpload(dbCounts[db.key].lastUpload)}
+                    </div>
+                  )}
+                </div>
                 
                 {dragOverDb === db.key ? (
                   <div className="mb-2 p-2 border-2 border-dashed border-blue-400 rounded bg-blue-50 dark:bg-blue-900/30">
