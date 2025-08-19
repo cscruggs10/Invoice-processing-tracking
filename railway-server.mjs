@@ -56,8 +56,17 @@ try {
       .then(client => {
         console.log('✅ Database connected successfully');
         client.query('SELECT NOW()')
-          .then(() => {
+          .then(async () => {
             console.log('✅ Database query test successful');
+            
+            // Auto-create VIN database tables
+            try {
+              await setupVinDatabaseTables(client);
+              console.log('✅ VIN database tables initialized');
+            } catch (setupError) {
+              console.error('❌ VIN table setup failed:', setupError);
+            }
+            
             client.release();
           })
           .catch(err => {
@@ -79,6 +88,85 @@ try {
 } catch (error) {
   console.error('Database setup error:', error);
   pool = null;
+}
+
+// Auto-setup VIN database tables function
+async function setupVinDatabaseTables(client) {
+  console.log('Creating VIN database tables...');
+  
+  // 1. Wholesale Inventory (GL: 1400, Wholesale export)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS wholesale_inventory (
+      id SERIAL PRIMARY KEY,
+      stock_number TEXT NOT NULL,
+      vin_last_6 TEXT NOT NULL,
+      vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+      uploaded_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(stock_number, vin_last_6)
+    )
+  `);
+  
+  // 2. Retail Inventory (GL: 1400, Retail export)  
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS retail_inventory (
+      id SERIAL PRIMARY KEY,
+      stock_number TEXT NOT NULL,
+      vin_last_6 TEXT NOT NULL,
+      vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+      uploaded_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(stock_number, vin_last_6)
+    )
+  `);
+  
+  // 3. Active Account (GL: 1420, Retail export)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS active_accounts (
+      id SERIAL PRIMARY KEY,
+      stock_number TEXT NOT NULL,
+      full_vin TEXT NOT NULL,
+      vin_last_6 TEXT NOT NULL,
+      vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+      uploaded_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(stock_number, full_vin)
+    )
+  `);
+  
+  // 4. Retail Sold (GL: 5180.3, Retail export)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS retail_sold (
+      id SERIAL PRIMARY KEY,
+      stock_number TEXT NOT NULL,
+      date_sold DATE NOT NULL,
+      vin_last_6 TEXT NOT NULL,
+      vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+      uploaded_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(stock_number, date_sold, vin_last_6)
+    )
+  `);
+  
+  // 5. Wholesale Sold (GL: 5180.x based on location, Wholesale export)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS wholesale_sold (
+      id SERIAL PRIMARY KEY,
+      stock_number TEXT NOT NULL,
+      location TEXT NOT NULL, -- CVILLE WHOLESALE, OB WHOLESALE, RENTAL
+      date_sold DATE NOT NULL,
+      vin_last_6 TEXT NOT NULL,
+      vin_padded TEXT NOT NULL, -- 6 digits with leading zeros
+      gl_code TEXT NOT NULL, -- 5180.9, 5180.7, 5180.8
+      uploaded_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(stock_number, location, date_sold, vin_last_6)
+    )
+  `);
+  
+  // Create indexes for fast VIN lookups
+  await client.query('CREATE INDEX IF NOT EXISTS idx_wholesale_inventory_vin ON wholesale_inventory(vin_padded)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_retail_inventory_vin ON retail_inventory(vin_padded)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_active_accounts_vin ON active_accounts(vin_padded)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_retail_sold_vin ON retail_sold(vin_padded, date_sold DESC)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_wholesale_sold_vin ON wholesale_sold(vin_padded, date_sold DESC)');
+  
+  console.log('VIN database tables and indexes created successfully');
 }
 
 // Basic middleware
