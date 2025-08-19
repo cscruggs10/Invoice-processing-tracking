@@ -798,14 +798,21 @@ function parseCSVForDatabase(csvData, databaseType) {
         break;
         
       case 'active_accounts':
-        // Expected: Stock Number, Full VIN
-        if (record['stock number'] || record['stock .']) {
-          const fullVin = record['vin'] || record['full vin'] || '';
+        // Expected: Stock Number, Full VIN - flexible headers
+        const stockNum = record['stocknbr'] || record['stock number'] || record['stock .'] || record['stock'] || '';
+        const fullVin = record['vin'] || record['full vin'] || '';
+        
+        console.log(`Active account - Stock: "${stockNum}", VIN: "${fullVin}"`);
+        
+        if (stockNum && stockNum.trim()) {
           records.push({
-            stock_number: record['stock number'] || record['stock .'],
-            full_vin: fullVin,
+            stock_number: stockNum.trim(),
+            full_vin: fullVin.trim(),
             vin_padded: padVin(fullVin) // Take last 6 of full VIN
           });
+          console.log(`Added active account: ${stockNum} with VIN ${fullVin}`);
+        } else {
+          console.log(`Skipping active account - no stock number found. Headers:`, Object.keys(record));
         }
         break;
         
@@ -883,9 +890,9 @@ async function updateDatabaseWithRecords(client, databaseType, records) {
         
       case 'active_accounts':
         await client.query(
-          `INSERT INTO active_accounts (stock_number, full_vin, vin_padded, uploaded_at) 
-           VALUES ($1, $2, $3, NOW())`,
-          [record.stock_number, record.full_vin, record.vin_padded]
+          `INSERT INTO active_accounts (stock_number, full_vin, vin_last_6, vin_padded, uploaded_at) 
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [record.stock_number, record.full_vin, record.full_vin.slice(-6), record.vin_padded]
         );
         break;
         
