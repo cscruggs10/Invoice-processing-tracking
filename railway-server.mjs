@@ -65,9 +65,9 @@ try {
               console.log('✅ VIN database tables initialized');
             } catch (setupError) {
               console.error('❌ VIN table setup failed:', setupError);
+            } finally {
+              client.release();
             }
-            
-            client.release();
           })
           .catch(err => {
             console.error('❌ Database query failed:', err);
@@ -94,8 +94,9 @@ try {
 async function setupVinDatabaseTables(client) {
   console.log('Creating VIN database tables...');
   
-  // 1. Wholesale Inventory (GL: 1400, Wholesale export)
-  await client.query(`
+  try {
+    // 1. Wholesale Inventory (GL: 1400, Wholesale export)
+    await client.query(`
     CREATE TABLE IF NOT EXISTS wholesale_inventory (
       id SERIAL PRIMARY KEY,
       stock_number TEXT NOT NULL,
@@ -164,9 +165,13 @@ async function setupVinDatabaseTables(client) {
   await client.query('CREATE INDEX IF NOT EXISTS idx_retail_inventory_vin ON retail_inventory(vin_padded)');
   await client.query('CREATE INDEX IF NOT EXISTS idx_active_accounts_vin ON active_accounts(vin_padded)');
   await client.query('CREATE INDEX IF NOT EXISTS idx_retail_sold_vin ON retail_sold(vin_padded, date_sold DESC)');
-  await client.query('CREATE INDEX IF NOT EXISTS idx_wholesale_sold_vin ON wholesale_sold(vin_padded, date_sold DESC)');
-  
-  console.log('VIN database tables and indexes created successfully');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_wholesale_sold_vin ON wholesale_sold(vin_padded, date_sold DESC)');
+    
+    console.log('VIN database tables and indexes created successfully');
+  } catch (error) {
+    console.error('Error creating VIN database tables:', error);
+    throw error;
+  }
 }
 
 // Basic middleware
@@ -1358,6 +1363,15 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
     // Try to connect to database and process CSV
     try {
       const client = await pool.connect();
+      
+      // Ensure VIN tables exist (fallback if startup creation failed)
+      try {
+        await setupVinDatabaseTables(client);
+        console.log('VIN tables verified/created for upload');
+      } catch (tableError) {
+        console.error('Table setup error during upload:', tableError);
+        // Continue anyway - tables might already exist
+      }
       
       // Parse CSV data
       const csvData = req.file.buffer.toString();
