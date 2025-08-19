@@ -56,7 +56,25 @@ export default function GLSearch() {
     try {
       const response = await fetch('/api/database-counts');
       const counts = await response.json();
-      setDbCounts(counts);
+      console.log('Database counts response:', counts);
+      
+      // Handle both old format (numbers) and new format (objects with count/lastUpload)
+      const normalizedCounts: Record<string, { count: number; lastUpload: string | null }> = {};
+      
+      Object.keys(counts).forEach(key => {
+        if (typeof counts[key] === 'number') {
+          // Old format - just a number
+          normalizedCounts[key] = { count: counts[key], lastUpload: null };
+        } else if (counts[key] && typeof counts[key] === 'object') {
+          // New format - object with count and lastUpload
+          normalizedCounts[key] = counts[key];
+        } else {
+          // Fallback
+          normalizedCounts[key] = { count: 0, lastUpload: null };
+        }
+      });
+      
+      setDbCounts(normalizedCounts);
     } catch (error) {
       console.error('Failed to fetch database counts:', error);
     }
@@ -470,7 +488,7 @@ export default function GLSearch() {
                     className={`${dbStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}
                   >
                     {dbStatus === 'checking' ? 'Checking...' : 
-                     dbStatus === 'connected' ? `${dbCounts[db.key]?.count || 0} Records` : 'DB Error'}
+                     dbStatus === 'connected' ? `${dbCounts[db.key]?.count ?? 0} Records` : 'DB Error'}
                   </Badge>
                   {dbStatus === 'connected' && dbCounts[db.key] && (
                     <div className="text-xs text-gray-500 dark:text-gray-400">
