@@ -258,7 +258,7 @@ export default function GLSearch() {
     switch (db) {
       case 'wholesale_inventory': return 'Wholesale Inventory';
       case 'retail_inventory': return 'Retail Inventory';
-      case 'active_account': return 'Active Account';
+      case 'active_accounts': return 'Active Account';
       case 'retail_sold': return 'Retail Sold';
       case 'wholesale_sold': return 'Wholesale Sold';
       default: return db;
@@ -466,7 +466,7 @@ export default function GLSearch() {
             {[
               { name: 'Wholesale Inventory', key: 'wholesale_inventory' },
               { name: 'Retail Inventory', key: 'retail_inventory' },
-              { name: 'Active Account', key: 'active_account' },
+              { name: 'Active Account', key: 'active_accounts' },
               { name: 'Retail Sold', key: 'retail_sold' },
               { name: 'Wholesale Sold', key: 'wholesale_sold' }
             ].map((db) => (
