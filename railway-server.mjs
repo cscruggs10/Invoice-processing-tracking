@@ -767,6 +767,132 @@ function padVin(vin) {
   return last6.padStart(6, '0');
 }
 
+// Parse CSV data for different database types
+function parseCSVForDatabase(csvData, databaseType) {
+  const lines = csvData.trim().split('\n');
+  if (lines.length < 2) return []; // Need at least headers + 1 row
+  
+  const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+  const records = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim());
+    const record = {};
+    headers.forEach((header, index) => {
+      record[header] = values[index] || '';
+    });
+    
+    // Parse based on database type
+    switch (databaseType) {
+      case 'wholesale_inventory':
+      case 'retail_inventory':
+        // Expected: Stock Number, VIN Last 6
+        if (record['stock number'] || record['stock .']) {
+          records.push({
+            stock_number: record['stock number'] || record['stock .'],
+            vin_last_6: record['last six of vin'] || record['vin last 6'] || '',
+            vin_padded: padVin(record['last six of vin'] || record['vin last 6'] || '')
+          });
+        }
+        break;
+        
+      case 'active_accounts':
+        // Expected: Stock Number, Full VIN
+        if (record['stock number'] || record['stock .']) {
+          const fullVin = record['vin'] || record['full vin'] || '';
+          records.push({
+            stock_number: record['stock number'] || record['stock .'],
+            full_vin: fullVin,
+            vin_padded: padVin(fullVin) // Take last 6 of full VIN
+          });
+        }
+        break;
+        
+      case 'retail_sold':
+        // Expected: Stock Number, Date Sold, VIN
+        if (record['stock .'] || record['stock number']) {
+          records.push({
+            stock_number: record['stock .'] || record['stock number'],
+            date_sold: record['date sold'] || new Date().toISOString().split('T')[0],
+            vin_last_6: record['last six of vin'] || '',
+            vin_padded: padVin(record['last six of vin'] || '')
+          });
+        }
+        break;
+        
+      case 'wholesale_sold':
+        // Expected: Stock Number, Location, Date Sold, VIN
+        if (record['stock .'] || record['stock number']) {
+          const location = record['location'] || record['lot name'] || '';
+          let glCode = '5180.1'; // Default GL code
+          
+          // Assign GL code based on location
+          if (location.includes('RENTAL')) glCode = '5180.8';
+          else if (location.includes('OB WHOLESALE')) glCode = '5180.7';
+          else if (location.includes('AUCTION')) glCode = '5180.2';
+          
+          records.push({
+            stock_number: record['stock .'] || record['stock number'],
+            location: location,
+            date_sold: record['date sold'] || new Date().toISOString().split('T')[0],
+            gl_code: glCode,
+            vin_last_6: record['last six of vin'] || '',
+            vin_padded: padVin(record['last six of vin'] || '')
+          });
+        }
+        break;
+    }
+  }
+  
+  return records;
+}
+
+// Update database with parsed records
+async function updateDatabaseWithRecords(client, databaseType, records) {
+  if (records.length === 0) return;
+  
+  // Clear existing data first
+  await client.query(`DELETE FROM ${databaseType}`);
+  
+  // Insert new records
+  for (const record of records) {
+    switch (databaseType) {
+      case 'wholesale_inventory':
+      case 'retail_inventory':
+        await client.query(
+          `INSERT INTO ${databaseType} (stock_number, vin_last_6, vin_padded, uploaded_at) 
+           VALUES ($1, $2, $3, NOW())`,
+          [record.stock_number, record.vin_last_6, record.vin_padded]
+        );
+        break;
+        
+      case 'active_accounts':
+        await client.query(
+          `INSERT INTO active_accounts (stock_number, full_vin, vin_padded, uploaded_at) 
+           VALUES ($1, $2, $3, NOW())`,
+          [record.stock_number, record.full_vin, record.vin_padded]
+        );
+        break;
+        
+      case 'retail_sold':
+        await client.query(
+          `INSERT INTO retail_sold (stock_number, date_sold, vin_padded, uploaded_at) 
+           VALUES ($1, $2, $3, NOW())`,
+          [record.stock_number, record.date_sold, record.vin_padded]
+        );
+        break;
+        
+      case 'wholesale_sold':
+        await client.query(
+          `INSERT INTO wholesale_sold (stock_number, location, date_sold, gl_code, vin_padded, uploaded_at) 
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [record.stock_number, record.location, record.date_sold, record.gl_code, record.vin_padded]
+        );
+        break;
+    }
+  }
+}
+
 // Database status check endpoint with mock mode
 app.get('/api/database-status', async (req, res) => {
   try {
@@ -1106,19 +1232,33 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
       });
     }
 
-    // Try to connect to database
+    // Try to connect to database and process CSV
     try {
       const client = await pool.connect();
+      
+      // Parse CSV data
+      const csvData = req.file.buffer.toString();
+      const records = parseCSVForDatabase(csvData, databaseType);
+      
+      if (records.length === 0) {
+        client.release();
+        return res.status(400).json({ 
+          error: 'No valid records found in CSV',
+          message: 'Please check CSV format and headers'
+        });
+      }
+      
+      // Update database with records
+      await updateDatabaseWithRecords(client, databaseType, records);
       client.release();
       
-      // Database is available but we don't have parsing logic yet
-      console.log(`CSV upload for ${databaseType}: ${req.file.originalname} (DB connected but using mock)`);
+      console.log(`CSV upload successful for ${databaseType}: ${req.file.originalname} (${records.length} records)`);
       return res.json({ 
         success: true, 
-        message: `Upload successful for ${databaseType} (Processing simulated)`,
+        message: `Successfully uploaded ${records.length} records to ${databaseType}`,
         filename: req.file.originalname,
-        records: Math.floor(Math.random() * 100) + 1,
-        mock: true
+        records: records.length,
+        mock: false
       });
     } catch (dbError) {
       // Database connection failed, fall back to mock
@@ -1133,18 +1273,15 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
       });
     }
 
-    // Parse CSV and update database
-    const csvData = req.file.buffer.toString();
-    const records = parseCSVForDatabase(csvData, databaseType);
+    // Parse CSV and update database - NOT IMPLEMENTED YET
+    // This would parse actual CSV data when database is connected
+    // For now, returns mock success
     
-    const client = await pool.connect();
-    await updateDatabaseWithRecords(client, databaseType, records);
-    client.release();
-
     res.json({ 
       success: true, 
-      message: `Successfully uploaded ${records.length} records to ${databaseType}`,
-      records: records.length 
+      message: `Upload queued for ${databaseType} (Feature in development)`,
+      records: 0,
+      mock: true 
     });
 
   } catch (error) {
@@ -1159,19 +1296,15 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
 // Get database record counts
 app.get('/api/database-counts', async (req, res) => {
   try {
-    if (process.env.NODE_ENV === 'development') {
-      // Mock counts for development
-      return res.json({
-        wholesale_inventory: 3,
-        retail_inventory: 2, 
-        active_accounts: 2,
-        retail_sold: 1,
-        wholesale_sold: 2
-      });
-    }
-
     if (!pool) {
-      return res.status(503).json({ error: 'No database connection' });
+      // Return mock counts when no database
+      return res.json({
+        wholesale_inventory: 0,
+        retail_inventory: 0, 
+        active_accounts: 0,
+        retail_sold: 0,
+        wholesale_sold: 0
+      });
     }
 
     const client = await pool.connect();
@@ -1180,8 +1313,12 @@ app.get('/api/database-counts', async (req, res) => {
     const databases = ['wholesale_inventory', 'retail_inventory', 'active_accounts', 'retail_sold', 'wholesale_sold'];
     
     for (const db of databases) {
-      const result = await client.query(`SELECT COUNT(*) as count FROM ${db}`);
-      counts[db] = parseInt(result.rows[0].count);
+      try {
+        const result = await client.query(`SELECT COUNT(*) as count FROM ${db}`);
+        counts[db] = parseInt(result.rows[0].count);
+      } catch (err) {
+        counts[db] = 0; // Default to 0 if table doesn't exist
+      }
     }
     
     client.release();
@@ -1189,7 +1326,62 @@ app.get('/api/database-counts', async (req, res) => {
 
   } catch (error) {
     console.error('Failed to get database counts:', error);
-    res.status(500).json({ error: 'Failed to get database counts' });
+    // Return zeros on error
+    res.json({
+      wholesale_inventory: 0,
+      retail_inventory: 0, 
+      active_accounts: 0,
+      retail_sold: 0,
+      wholesale_sold: 0
+    });
+  }
+});
+
+// Clear all VIN databases - requires confirmation
+app.post('/api/clear-vin-databases', async (req, res) => {
+  try {
+    const { confirmToken } = req.body;
+    
+    // Require confirmation token
+    if (confirmToken !== 'CLEAR_ALL_VIN_DATA') {
+      return res.status(400).json({ 
+        error: 'Confirmation required', 
+        message: 'Send confirmToken: "CLEAR_ALL_VIN_DATA" to proceed' 
+      });
+    }
+
+    if (!pool) {
+      return res.status(503).json({ error: 'No database connection' });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      // Clear all VIN database tables
+      await client.query('DELETE FROM wholesale_inventory');
+      await client.query('DELETE FROM retail_inventory');
+      await client.query('DELETE FROM active_accounts');
+      await client.query('DELETE FROM retail_sold');
+      await client.query('DELETE FROM wholesale_sold');
+      
+      console.log('All VIN databases cleared successfully');
+      
+      client.release();
+      res.json({ 
+        success: true, 
+        message: 'All VIN databases cleared successfully' 
+      });
+    } catch (error) {
+      client.release();
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Failed to clear VIN databases:', error);
+    res.status(500).json({ 
+      error: 'Failed to clear databases', 
+      details: error.message 
+    });
   }
 });
 

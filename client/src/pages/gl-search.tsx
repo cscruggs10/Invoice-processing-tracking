@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Database, FileDown, Clock, CheckCircle, XCircle, AlertTriangle, Upload } from "lucide-react";
+import { Search, Database, FileDown, Clock, CheckCircle, XCircle, AlertTriangle, Upload, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface GLResult {
@@ -29,6 +29,7 @@ export default function GLSearch() {
   const [uploadingDb, setUploadingDb] = useState<string | null>(null);
   const [dbCounts, setDbCounts] = useState<Record<string, number>>({});
   const [dragOverDb, setDragOverDb] = useState<string | null>(null);
+  const [clearingDbs, setClearingDbs] = useState(false);
   const { toast } = useToast();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -147,6 +148,46 @@ export default function GLSearch() {
 
     const file = files[0];
     await uploadFile(file, databaseKey);
+  };
+
+  const handleClearDatabases = async () => {
+    if (!confirm('Are you sure you want to clear ALL VIN databases? This cannot be undone.')) {
+      return;
+    }
+
+    setClearingDbs(true);
+    
+    try {
+      const response = await fetch('/api/clear-vin-databases', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ confirmToken: 'CLEAR_ALL_VIN_DATA' }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "Databases Cleared",
+          description: "All VIN databases have been cleared successfully",
+        });
+        // Refresh database counts
+        await fetchDatabaseCounts();
+      } else {
+        throw new Error(result.error || 'Clear operation failed');
+      }
+    } catch (error) {
+      console.error('Clear databases error:', error);
+      toast({
+        title: "Clear Failed",
+        description: error instanceof Error ? error.message : "Failed to clear databases",
+        variant: "destructive",
+      });
+    } finally {
+      setClearingDbs(false);
+    }
   };
 
   const handleSearch = async () => {
@@ -374,7 +415,27 @@ export default function GLSearch() {
       {/* Database Status */}
       <Card className="modern-card border-0">
         <CardHeader>
-          <CardTitle>Database Status & Upload</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Database Status & Upload</span>
+            <Button 
+              onClick={handleClearDatabases}
+              disabled={clearingDbs}
+              variant="destructive"
+              size="sm"
+            >
+              {clearingDbs ? (
+                <>
+                  <Clock className="h-3 w-3 mr-1 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Clear All
+                </>
+              )}
+            </Button>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
