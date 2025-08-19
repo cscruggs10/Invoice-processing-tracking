@@ -199,8 +199,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'dist/public')));
+// Serve static files from the React build
+app.use(express.static(path.join(__dirname, 'client/dist')));
 
 // Basic health check (no database)
 app.get('/health', (req, res) => {
@@ -1711,11 +1711,12 @@ app.patch('/api/files/:fileId/invoice', (req, res) => {
 
 // Catch all
 app.get('*', (req, res) => {
-  const indexPath = path.join(__dirname, 'dist/public/index.html');
+  const indexPath = path.join(__dirname, 'client/dist/index.html');
   if (require('fs').existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(404).send('Not found');
+    // If no built frontend, send a basic response
+    res.send('Invoice Tracker API Server - Frontend not built. Run npm run build to build the frontend.');
   }
 });
 
