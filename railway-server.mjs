@@ -843,24 +843,37 @@ function parseCSVForDatabase(csvData, databaseType) {
         break;
         
       case 'wholesale_sold':
-        // Expected: Stock Number, Location, Date Sold, VIN
-        if (record['stock .'] || record['stock number']) {
-          const location = record['location'] || record['lot name'] || '';
-          let glCode = '5180.1'; // Default GL code
+        // Expected: Stock ., Location, Date Sold, Last Six of VIN
+        const stockNum = record['stock .'] || record['stock number'] || record['stock'] || '';
+        const location = record['location'] || record['lot name'] || '';
+        const dateSold = record['date sold'] || record['sold date'] || '';
+        const vinLast6 = record['last six of vin'] || record['vin last 6'] || record['vin'] || '';
+        
+        console.log(`Wholesale sold record - Stock: "${stockNum}", Location: "${location}", Date: "${dateSold}", VIN: "${vinLast6}"`);
+        
+        if (stockNum && stockNum.trim()) {
+          let glCode = '5180.9'; // Default GL code for CVILLE WHOLESALE
           
           // Assign GL code based on location
-          if (location.includes('RENTAL')) glCode = '5180.8';
-          else if (location.includes('OB WHOLESALE')) glCode = '5180.7';
-          else if (location.includes('AUCTION')) glCode = '5180.2';
+          if (location.toUpperCase().includes('RENTAL')) glCode = '5180.8';
+          else if (location.toUpperCase().includes('OB WHOLESALE')) glCode = '5180.7';
+          else if (location.toUpperCase().includes('AUCTION')) glCode = '5180.2';
+          else if (location.toUpperCase().includes('CVILLE WHOLESALE')) glCode = '5180.9';
           
-          records.push({
-            stock_number: record['stock .'] || record['stock number'],
-            location: location,
-            date_sold: record['date sold'] || new Date().toISOString().split('T')[0],
+          const parsedRecord = {
+            stock_number: stockNum.trim(),
+            location: location.trim(),
+            date_sold: dateSold,
             gl_code: glCode,
-            vin_last_6: record['last six of vin'] || '',
-            vin_padded: padVin(record['last six of vin'] || '')
-          });
+            vin_last_6: vinLast6.trim(),
+            vin_padded: padVin(vinLast6)
+          };
+          
+          console.log(`Adding wholesale sold record:`, parsedRecord);
+          records.push(parsedRecord);
+        } else {
+          console.log(`Skipping wholesale sold record - no valid stock number found`);
+          console.log(`Available headers:`, Object.keys(record));
         }
         break;
     }
