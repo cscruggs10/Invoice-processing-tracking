@@ -941,29 +941,29 @@ function parseCSVForDatabase(csvData, databaseType) {
         
       case 'wholesale_sold':
         // Expected: Stock ., Location, Date Sold, Last Six of VIN
-        const stockNum = record['stock .'] || record['stock number'] || record['stock'] || '';
-        const location = record['location'] || record['lot name'] || '';
-        const dateSold = record['date sold'] || record['sold date'] || '';
-        const vinLast6 = record['last six of vin'] || record['vin last 6'] || record['vin'] || '';
+        const wsStockNum = record['stock .'] || record['stock number'] || record['stock'] || '';
+        const wsLocation = record['location'] || record['lot name'] || '';
+        const wsDateSold = record['date sold'] || record['sold date'] || '';
+        const wsVinLast6 = record['last six of vin'] || record['vin last 6'] || record['vin'] || '';
         
-        console.log(`Wholesale sold record - Stock: "${stockNum}", Location: "${location}", Date: "${dateSold}", VIN: "${vinLast6}"`);
+        console.log(`Wholesale sold record - Stock: "${wsStockNum}", Location: "${wsLocation}", Date: "${wsDateSold}", VIN: "${wsVinLast6}"`);
         
-        if (stockNum && stockNum.trim()) {
+        if (wsStockNum && wsStockNum.trim()) {
           let glCode = '5180.9'; // Default GL code for CVILLE WHOLESALE
           
           // Assign GL code based on location
-          if (location.toUpperCase().includes('RENTAL')) glCode = '5180.8';
-          else if (location.toUpperCase().includes('OB WHOLESALE')) glCode = '5180.7';
-          else if (location.toUpperCase().includes('AUCTION')) glCode = '5180.2';
-          else if (location.toUpperCase().includes('CVILLE WHOLESALE')) glCode = '5180.9';
+          if (wsLocation.toUpperCase().includes('RENTAL')) glCode = '5180.8';
+          else if (wsLocation.toUpperCase().includes('OB WHOLESALE')) glCode = '5180.7';
+          else if (wsLocation.toUpperCase().includes('AUCTION')) glCode = '5180.2';
+          else if (wsLocation.toUpperCase().includes('CVILLE WHOLESALE')) glCode = '5180.9';
           
           const parsedRecord = {
-            stock_number: stockNum.trim(),
-            location: location.trim(),
-            date_sold: dateSold,
+            stock_number: wsStockNum.trim(),
+            location: wsLocation.trim(),
+            date_sold: wsDateSold,
             gl_code: glCode,
-            vin_last_6: vinLast6.trim(),
-            vin_padded: padVin(vinLast6)
+            vin_last_6: wsVinLast6.trim(),
+            vin_padded: padVin(wsVinLast6)
           };
           
           console.log(`Adding wholesale sold record:`, parsedRecord);
