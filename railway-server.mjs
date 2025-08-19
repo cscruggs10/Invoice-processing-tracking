@@ -773,6 +773,7 @@ function parseCSVForDatabase(csvData, databaseType) {
   if (lines.length < 2) return []; // Need at least headers + 1 row
   
   const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+  console.log(`Parsing ${databaseType} CSV with headers:`, headers);
   const records = [];
   
   for (let i = 1; i < lines.length; i++) {
@@ -809,14 +810,28 @@ function parseCSVForDatabase(csvData, databaseType) {
         break;
         
       case 'retail_sold':
-        // Expected: Stock Number, Date Sold, VIN
-        if (record['stock .'] || record['stock number']) {
-          records.push({
-            stock_number: record['stock .'] || record['stock number'],
-            date_sold: record['date sold'] || new Date().toISOString().split('T')[0],
-            vin_last_6: record['last six of vin'] || '',
-            vin_padded: padVin(record['last six of vin'] || '')
-          });
+        // Expected: Stock Number, Date Sold, VIN - be flexible with headers
+        console.log(`Retail sold record:`, record);
+        
+        // Look for stock number with multiple possible headers
+        const stockNumber = record['stock .'] || record['stock number'] || record['stock#'] || record['stock'] || '';
+        const dateSold = record['date sold'] || record['datesold'] || record['sold date'] || new Date().toISOString().split('T')[0];
+        const vinLast6 = record['last six of vin'] || record['vin last 6'] || record['vin'] || record['last 6'] || '';
+        
+        console.log(`Stock: "${stockNumber}", Date: "${dateSold}", VIN: "${vinLast6}"`);
+        
+        if (stockNumber && stockNumber.trim()) {
+          const parsedRecord = {
+            stock_number: stockNumber.trim(),
+            date_sold: dateSold,
+            vin_last_6: vinLast6,
+            vin_padded: padVin(vinLast6)
+          };
+          console.log(`Adding retail sold record:`, parsedRecord);
+          records.push(parsedRecord);
+        } else {
+          console.log(`Skipping retail sold record - no valid stock number found`);
+          console.log(`Available headers:`, Object.keys(record));
         }
         break;
         
