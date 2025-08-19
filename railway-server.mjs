@@ -206,7 +206,7 @@ app.use(express.static(path.join(__dirname, 'client/dist')));
 app.get('/', (req, res) => {
   try {
     const indexPath = path.join(__dirname, 'client/dist/index.html');
-    if (require('fs').existsSync(indexPath)) {
+    if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
       res.status(200).json({ 
@@ -1738,9 +1738,9 @@ app.get('*', (req, res) => {
   try {
     const indexPath = path.join(__dirname, 'client/dist/index.html');
     console.log('Serving index.html from:', indexPath);
-    console.log('File exists:', require('fs').existsSync(indexPath));
+    console.log('File exists:', fs.existsSync(indexPath));
     
-    if (require('fs').existsSync(indexPath)) {
+    if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
       // If no built frontend, send a basic HTML response
