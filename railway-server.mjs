@@ -200,12 +200,12 @@ app.use((req, res, next) => {
 });
 
 // Serve static files from the React build
-app.use(express.static(path.join(__dirname, 'client/dist')));
+app.use(express.static(path.join(__dirname, 'dist/public')));
 
 // Root route for Railway
 app.get('/', (req, res) => {
   try {
-    const indexPath = path.join(__dirname, 'client/dist/index.html');
+    const indexPath = path.join(__dirname, 'dist/public/index.html');
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
@@ -1736,7 +1736,7 @@ app.patch('/api/files/:fileId/invoice', (req, res) => {
 // Catch all
 app.get('*', (req, res) => {
   try {
-    const indexPath = path.join(__dirname, 'client/dist/index.html');
+    const indexPath = path.join(__dirname, 'dist/public/index.html');
     console.log('Serving index.html from:', indexPath);
     console.log('File exists:', fs.existsSync(indexPath));
     
