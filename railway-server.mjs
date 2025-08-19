@@ -51,32 +51,36 @@ try {
     
     console.log('Railway PostgreSQL pool initialized');
     
-    // Test connection on startup
-    pool.connect()
-      .then(client => {
-        console.log('✅ Database connected successfully');
-        client.query('SELECT NOW()')
-          .then(async () => {
+    // Test connection on startup - don't let this crash the app
+    setTimeout(() => {
+      pool.connect()
+        .then(async client => {
+          try {
+            console.log('✅ Database connected successfully');
+            await client.query('SELECT NOW()');
             console.log('✅ Database query test successful');
             
-            // Auto-create VIN database tables
-            try {
-              await setupVinDatabaseTables(client);
-              console.log('✅ VIN database tables initialized');
-            } catch (setupError) {
-              console.error('❌ VIN table setup failed:', setupError);
-            } finally {
-              client.release();
-            }
-          })
-          .catch(err => {
-            console.error('❌ Database query failed:', err);
+            // Auto-create VIN database tables in background
+            setupVinDatabaseTables(client)
+              .then(() => {
+                console.log('✅ VIN database tables initialized');
+              })
+              .catch(setupError => {
+                console.error('❌ VIN table setup failed:', setupError);
+              })
+              .finally(() => {
+                client.release();
+              });
+          } catch (err) {
+            console.error('❌ Database operation failed:', err);
             client.release();
-          });
-      })
-      .catch(err => {
-        console.error('❌ Database connection failed:', err);
-      });
+          }
+        })
+        .catch(err => {
+          console.error('❌ Database connection failed:', err);
+          console.log('App will continue in mock mode');
+        });
+    }, 1000); // Delay by 1 second to let server fully initialize
     
     pool.on('error', (err) => {
       console.error('Database pool error:', err);
@@ -1726,9 +1730,36 @@ const server = app.listen(port, '0.0.0.0', () => {
   });
 });
 
+// Handle uncaught errors to prevent app crashes
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit - keep the app running in production
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Continuing despite error...');
+  } else {
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit - keep the app running in production
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Continuing despite rejection...');
+  }
+});
+
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, closing server gracefully');
+  
+  // Close database pool first if it exists
+  if (pool) {
+    pool.end(() => {
+      console.log('Database pool closed');
+    });
+  }
+  
   server.close(() => {
     console.log('Server closed');
     process.exit(0);
