@@ -202,6 +202,30 @@ app.use((req, res, next) => {
 // Serve static files from the React build
 app.use(express.static(path.join(__dirname, 'client/dist')));
 
+// Root route for Railway
+app.get('/', (req, res) => {
+  try {
+    const indexPath = path.join(__dirname, 'client/dist/index.html');
+    if (require('fs').existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(200).json({ 
+        status: 'OK', 
+        message: 'Invoice Tracker API is running',
+        frontend: 'Not built',
+        api_endpoints: ['/api/health', '/api/database-status', '/api/gl-lookup/:vin']
+      });
+    }
+  } catch (error) {
+    console.error('Root route error:', error);
+    res.status(200).json({ 
+      status: 'OK',
+      message: 'API running',
+      error: error.message 
+    });
+  }
+});
+
 // Basic health check (no database)
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
@@ -1711,12 +1735,36 @@ app.patch('/api/files/:fileId/invoice', (req, res) => {
 
 // Catch all
 app.get('*', (req, res) => {
-  const indexPath = path.join(__dirname, 'client/dist/index.html');
-  if (require('fs').existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    // If no built frontend, send a basic response
-    res.send('Invoice Tracker API Server - Frontend not built. Run npm run build to build the frontend.');
+  try {
+    const indexPath = path.join(__dirname, 'client/dist/index.html');
+    console.log('Serving index.html from:', indexPath);
+    console.log('File exists:', require('fs').existsSync(indexPath));
+    
+    if (require('fs').existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // If no built frontend, send a basic HTML response
+      res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Invoice Tracker</title></head>
+        <body>
+          <h1>Invoice Tracker API Server</h1>
+          <p>API is running successfully!</p>
+          <p>Frontend build not found at: ${indexPath}</p>
+          <p>Available endpoints:</p>
+          <ul>
+            <li>/api/health - Health check</li>
+            <li>/api/database-status - Database status</li>
+            <li>/api/gl-lookup/:vin - GL code lookup</li>
+          </ul>
+        </body>
+        </html>
+      `);
+    }
+  } catch (error) {
+    console.error('Error serving index:', error);
+    res.status(500).send(`Error: ${error.message}`);
   }
 });
 
