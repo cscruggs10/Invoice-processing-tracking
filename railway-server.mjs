@@ -967,7 +967,12 @@ function parseCSVForDatabase(csvData, databaseType) {
         
         console.log(`Wholesale sold record - Stock: "${wsStockNum}", Location: "${wsLocation}", Date: "${wsDateSold}", VIN: "${wsVinLast6}"`);
         
-        if (wsStockNum && wsStockNum.trim()) {
+        // Skip if no VIN value
+        if (!wsVinLast6 || !wsVinLast6.trim()) {
+          console.log(`WARNING: Skipping wholesale sold record - empty VIN field. Stock: ${wsStockNum}`);
+        }
+        
+        if (wsStockNum && wsStockNum.trim() && wsVinLast6 && wsVinLast6.trim()) {
           let glCode = '5180.9'; // Default GL code for CVILLE WHOLESALE
           
           // Assign GL code based on location
@@ -1035,9 +1040,9 @@ async function updateDatabaseWithRecords(client, databaseType, records) {
         
       case 'wholesale_sold':
         await client.query(
-          `INSERT INTO wholesale_sold (stock_number, location, date_sold, gl_code, vin_padded, uploaded_at) 
-           VALUES ($1, $2, $3, $4, $5, NOW())`,
-          [record.stock_number, record.location, record.date_sold, record.gl_code, record.vin_padded]
+          `INSERT INTO wholesale_sold (stock_number, location, date_sold, gl_code, vin_last_6, vin_padded, uploaded_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [record.stock_number, record.location, record.date_sold, record.gl_code, record.vin_last_6, record.vin_padded]
         );
         break;
     }
