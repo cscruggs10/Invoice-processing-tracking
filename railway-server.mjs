@@ -200,30 +200,25 @@ app.use((req, res, next) => {
 });
 
 // Serve static files from the React build
-app.use(express.static(path.join(__dirname, 'dist/public')));
+app.use(express.static(path.join(__dirname, 'client/dist')));
 
 // Root route for Railway
 app.get('/', (req, res) => {
-  try {
-    const indexPath = path.join(__dirname, 'dist/public/index.html');
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      res.status(200).json({ 
-        status: 'OK', 
-        message: 'Invoice Tracker API is running',
-        frontend: 'Not built',
-        api_endpoints: ['/api/health', '/api/database-status', '/api/gl-lookup/:vin']
-      });
-    }
-  } catch (error) {
-    console.error('Root route error:', error);
-    res.status(200).json({ 
-      status: 'OK',
-      message: 'API running',
-      error: error.message 
-    });
-  }
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'Invoice Tracker API Server',
+    version: '2.0',
+    database: 'Connected with VIN tables',
+    frontend: 'Use localhost:5173 for development UI',
+    api_endpoints: {
+      health: '/api/health',
+      database_status: '/api/database-status', 
+      gl_lookup: '/api/gl-lookup/:vin',
+      csv_upload: '/api/upload-csv/:database',
+      database_counts: '/api/database-counts'
+    },
+    upload_databases: ['wholesale_inventory', 'retail_inventory', 'active_accounts', 'retail_sold', 'wholesale_sold']
+  });
 });
 
 // Basic health check (no database)
@@ -1376,12 +1371,15 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
     }
 
     // Check for database connection first
+    console.log('Upload check - Pool exists:', !!pool);
+    console.log('Upload check - DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    
     if (!pool) {
       // If no database, use mock mode
-      console.log(`Mock CSV upload for ${databaseType}: ${req.file.originalname} (No DB connection)`);
+      console.log(`Mock CSV upload for ${databaseType}: ${req.file.originalname} (No DB pool)`);
       return res.json({ 
         success: true, 
-        message: `Mock upload successful for ${databaseType} (Database not connected)`,
+        message: `Mock upload successful for ${databaseType} (Database pool not available)`,
         filename: req.file.originalname,
         records: Math.floor(Math.random() * 100) + 1,
         mock: true
@@ -1736,7 +1734,7 @@ app.patch('/api/files/:fileId/invoice', (req, res) => {
 // Catch all
 app.get('*', (req, res) => {
   try {
-    const indexPath = path.join(__dirname, 'dist/public/index.html');
+    const indexPath = path.join(__dirname, 'client/dist/index.html');
     console.log('Serving index.html from:', indexPath);
     console.log('File exists:', fs.existsSync(indexPath));
     

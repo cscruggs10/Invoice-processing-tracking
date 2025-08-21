@@ -1,11 +1,11 @@
 {
-  "name": "rest-express",
-  "version": "1.0.0",
+  "name": "invoice-tracker",
+  "version": "2.0.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "vite build",
+    "build": "echo 'Building React frontend...' && vite build && echo 'Build complete - output in client/dist'",
     "start": "node railway-server.mjs",
     "start:production": "node production-server.mjs",
     "start:dist": "node dist-server.js",

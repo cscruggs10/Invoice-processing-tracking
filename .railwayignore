@@ -1,0 +1,7 @@
+# Force fresh Railway build - v2.0.0
+node_modules/
+.git/
+*.log
+.env.local
+dist/
+client/dist/
