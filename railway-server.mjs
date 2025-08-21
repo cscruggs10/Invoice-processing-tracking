@@ -1370,18 +1370,31 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
       return res.status(400).json({ error: 'Invalid database type' });
     }
 
-    // Check for database connection first
-    console.log('Upload check - Pool exists:', !!pool);
-    console.log('Upload check - DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    // Always try to use the database if DATABASE_URL exists
+    console.log(`Processing CSV upload for ${databaseType}: ${req.file.originalname}`);
+    
+    // Skip the pool check - if DATABASE_URL exists, create pool on demand
+    if (!pool && process.env.DATABASE_URL) {
+      console.log('Creating database pool on demand for upload');
+      pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.DATABASE_URL.includes('localhost') ? false : {
+          rejectUnauthorized: false
+        },
+        max: 5,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+      });
+    }
     
     if (!pool) {
-      // If no database, use mock mode
-      console.log(`Mock CSV upload for ${databaseType}: ${req.file.originalname} (No DB pool)`);
+      // Only use mock if no DATABASE_URL at all
+      console.log(`No DATABASE_URL - using mock mode`);
       return res.json({ 
         success: true, 
-        message: `Mock upload successful for ${databaseType} (Database pool not available)`,
+        message: `Mock upload - no database configured`,
         filename: req.file.originalname,
-        records: Math.floor(Math.random() * 100) + 1,
+        records: 0,
         mock: true
       });
     }
@@ -1424,28 +1437,15 @@ app.post('/api/upload-csv/:database', upload.single('csvFile'), async (req, res)
         mock: false
       });
     } catch (dbError) {
-      // Database connection failed, fall back to mock
-      console.log(`Mock CSV upload for ${databaseType}: ${req.file.originalname} (DB error: ${dbError.message})`);
-      return res.json({ 
-        success: true, 
-        message: `Mock upload successful for ${databaseType} (Database offline)`,
-        filename: req.file.originalname,
-        records: Math.floor(Math.random() * 100) + 1,
-        mock: true,
-        dbStatus: 'offline'
+      // Database error - return actual error
+      console.error(`Database error during CSV upload for ${databaseType}:`, dbError);
+      return res.status(500).json({ 
+        success: false, 
+        error: `Database error: ${dbError.message}`,
+        message: `Failed to upload to ${databaseType}`,
+        filename: req.file.originalname
       });
     }
-
-    // Parse CSV and update database - NOT IMPLEMENTED YET
-    // This would parse actual CSV data when database is connected
-    // For now, returns mock success
-    
-    res.json({ 
-      success: true, 
-      message: `Upload queued for ${databaseType} (Feature in development)`,
-      records: 0,
-      mock: true 
-    });
 
   } catch (error) {
     console.error('CSV upload failed:', error);
